@@ -1,0 +1,14 @@
+[server]
+rcon = "xxxx"
+password = "xxxx"
+demostf_key = "xxxx" # optional
+logstf_key = "xxxx" # optional
+config_league = "etf2l" # optional, defaults to etf2l
+config_mode = "6v6" # optional, defaults to 6v6
+name = "MyCoolServer" # optional, defaults to Spire
+tv_name = "MyCoolSTV" # optional, defaults to SpireTV
+
+[vultr]
+api_key = "xxx"
+region = "ams" # see https://api.vultr.com/v2/regions for a list of regions
+plan = "vc2-1c-2gb" # optional, defaults to vc2-1c-2gb (2GB, $10/month) see https://api.vultr.com/v2/plans for a lis of plan
