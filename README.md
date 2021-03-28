@@ -17,3 +17,7 @@ if it already detects a running one and it will only destroy a server that was c
 This does mean that if the program is (re-)started while a server is already active, the program will not
 start and destroy any server because it can't be sure it should control the running server.
 You'll need to manually destroy the existing server in that case.
+
+## Dependencies
+
+- requires openssl 1.1 
