@@ -135,17 +135,19 @@ async fn main() -> Result<(), Error> {
     Ok(())
 }
 
-fn stop_job(_cloud: Arc<dyn Cloud>, config: &Config, server_id: Arc<Mutex<Option<String>>>) -> Job {
+fn stop_job(cloud: Arc<dyn Cloud>, config: &Config, server_id: Arc<Mutex<Option<String>>>) -> Job {
     Job::new(&config.schedule.stop, move |_uuid, _l| {
         let server_id = server_id.clone();
+        let cloud = cloud.clone();
         spawn(async move {
-            println!("Stopping server");
             if let Some(id) = server_id.lock().unwrap().take() {
-                println!("Would have killed {}", id);
-                // match cloud.kill(&id).await {
-                //     Ok(_) => {}
-                //     Err(e) => eprintln!("{:#}", e),
-                // };
+                println!("Stopping server {}", id);
+                match cloud.kill(&id).await {
+                    Ok(_) => {}
+                    Err(e) => eprintln!("{:#}", e),
+                };
+            } else {
+                println!("No server to stop")
             }
         });
     })
@@ -161,11 +163,14 @@ fn start_job(cloud: Arc<dyn Cloud>, config: Config, server_id: Arc<Mutex<Option<
         let server_id = server_id.clone();
         spawn(async move {
             let cloud = cloud.as_ref();
-            println!("Starting server");
-            match start(cloud, &config).await {
-                Ok(id) => *server_id.lock().unwrap() = Some(id),
-                Err(e) => eprintln!("{:#}", e),
-            };
+            let already_started = { server_id.lock().unwrap().is_some() };
+            if !already_started {
+                println!("Starting server");
+                match start(cloud, &config).await {
+                    Ok(id) => *server_id.lock().unwrap() = Some(id),
+                    Err(e) => eprintln!("{:#}", e),
+                };
+            }
         });
     })
     .unwrap()
