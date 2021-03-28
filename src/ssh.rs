@@ -1,10 +1,13 @@
 use futures_util::future::{self};
+use std::io::Write;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::time::Duration;
 use thiserror::Error;
 use thrussh::client::Handle;
 use thrussh::*;
 use thrussh_keys::key::PublicKey;
+use tokio::time::{sleep, timeout};
 
 struct Client {}
 
@@ -47,27 +50,8 @@ impl client::Handler for Client {
     fn finished(self, session: client::Session) -> Self::FutureUnit {
         future::ready(Ok((self, session)))
     }
-    fn check_server_key(self, server_public_key: &PublicKey) -> Self::FutureBool {
-        println!("check_server_key: {:?}", server_public_key);
+    fn check_server_key(self, _server_public_key: &PublicKey) -> Self::FutureBool {
         self.finished_bool(true)
-    }
-    fn channel_open_confirmation(
-        self,
-        channel: ChannelId,
-        _max_packet_size: u32,
-        _window_size: u32,
-        session: client::Session,
-    ) -> Self::FutureUnit {
-        println!("channel_open_confirmation: {:?}", channel);
-        self.finished(session)
-    }
-    fn data(self, channel: ChannelId, data: &[u8], session: client::Session) -> Self::FutureUnit {
-        println!(
-            "data on channel {:?}: {:?}",
-            channel,
-            std::str::from_utf8(data)
-        );
-        self.finished(session)
     }
 }
 
@@ -77,6 +61,21 @@ pub struct SshSession {
 
 impl SshSession {
     pub async fn open(ip: IpAddr, password: &str) -> Result<Self, SshError> {
+        Ok(timeout(Duration::from_secs(5 * 60), async move {
+            loop {
+                sleep(Duration::from_secs(1)).await;
+                match SshSession::open_impl(ip, password).await {
+                    Ok(ssh) => return Ok(ssh),
+                    Err(SshError::ConnectionTimeout) => {}
+                    Err(e) => return Err(e),
+                }
+            }
+        })
+        .await
+        .map_err(|_| SshError::ConnectionTimeout)??)
+    }
+
+    async fn open_impl(ip: IpAddr, password: &str) -> Result<Self, SshError> {
         let config = thrussh::client::Config::default();
         let config = Arc::new(config);
         let sh = Client {};
@@ -89,14 +88,45 @@ impl SshSession {
         }
     }
 
-    pub async fn exec<S: Into<String>>(&mut self, cmd: S) -> Result<(), SshError> {
+    pub async fn exec<S: Into<String>>(&mut self, cmd: S) -> Result<CommandResult, SshError> {
         let mut channel = self.handle.channel_open_session().await?;
-        println!("exec");
         channel.exec(true, cmd).await?;
-        println!("exec'd");
-        if let Some(msg) = channel.wait().await {
-            println!("{:?}", msg)
+        let mut output = Vec::new();
+        let mut code = None;
+        while let Some(msg) = channel.wait().await {
+            match msg {
+                thrussh::ChannelMsg::Data { ref data } => {
+                    output.write_all(&data).unwrap();
+                }
+                thrussh::ChannelMsg::ExitStatus { exit_status } => {
+                    code = Some(exit_status);
+                }
+                _ => {}
+            }
         }
+        Ok(CommandResult { output, code })
+    }
+
+    pub async fn close(mut self) -> Result<(), SshError> {
+        self.handle
+            .disconnect(Disconnect::ByApplication, "", "English")
+            .await?;
+        self.handle.await?;
         Ok(())
+    }
+}
+
+pub struct CommandResult {
+    output: Vec<u8>,
+    pub code: Option<u32>,
+}
+
+impl CommandResult {
+    pub fn output(&self) -> String {
+        String::from_utf8_lossy(&self.output).into()
+    }
+
+    pub fn success(&self) -> bool {
+        self.code == Some(0)
     }
 }

@@ -1,13 +1,11 @@
-mod ssh;
-pub mod vultr;
+use std::net::IpAddr;
 
-use crate::cloud::ssh::SshError;
-use crate::config::ServerConfig;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::StatusCode;
-use std::net::IpAddr;
 use thiserror::Error;
+
+pub mod vultr;
 
 #[derive(Debug, Error)]
 pub enum CloudError {
@@ -21,8 +19,6 @@ pub enum CloudError {
     InvalidResponse(#[from] ResponseError),
     #[error("Server boot timed out")]
     StartTimeout,
-    #[error("Error while trying to connect trough ssh: {0}")]
-    Ssh(#[from] SshError),
 }
 
 /// Intentionally opaque error
@@ -72,8 +68,6 @@ pub trait Cloud {
     async fn kill(&self, id: &str) -> Result<()>;
     /// Wait until the server has an ip
     async fn wait_for_ip(&self, id: &str) -> Result<Server>;
-    /// Setup the tf2 server on the instance
-    async fn setup(&self, id: &str, password: &str, config: &ServerConfig) -> Result<Server>;
 }
 
 #[derive(Debug)]

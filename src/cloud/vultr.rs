@@ -1,6 +1,4 @@
-use crate::cloud::ssh::{SshError, SshSession};
 use crate::cloud::{Cloud, CloudError, Created, NetworkError, ResponseError, Result, Server};
-use crate::config::ServerConfig;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use petname::petname;
@@ -8,7 +6,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::net::IpAddr;
 use std::time::Duration;
-use tokio::time::{sleep, timeout};
+use tokio::time::sleep;
 
 pub struct Vultr {
     region: String,
@@ -90,65 +88,6 @@ impl Cloud for Vultr {
             }
         };
         Ok(instance.into())
-    }
-
-    async fn setup(
-        &self,
-        id: &str,
-        password: &str,
-        config: &ServerConfig,
-    ) -> Result<Server, CloudError> {
-        let server = self.wait_for_ip(id).await?;
-        let ip = server.ip;
-        let mut ssh = timeout(Duration::from_secs(5 * 60), async move {
-            loop {
-                sleep(Duration::from_secs(1)).await;
-                match SshSession::open(ip, password).await {
-                    Ok(ssh) => return Ok(ssh),
-                    Err(SshError::ConnectionTimeout) => {}
-                    Err(e) => return Err(e),
-                }
-            }
-        })
-        .await
-        .map_err(|_| CloudError::StartTimeout)??;
-        println!("connected");
-
-        ssh.exec("docker pull spiretf/docker-spire-server").await?;
-        println!("pulled");
-        ssh.exec(format!(
-            "docker run --name spire -d \
-            -e NAME={name} -e TV_NAME={tv_name} -e PASSWORD={password} -e RCON_PASSWORD={rcon} \
-            -e DEMOSTF_APIKEY={demostf} -e LOGSTF_APIKEY={logstf} \
-            -e CONFIG_LEAGUE={league} -e CONFIG_MODE={mode} \
-            -p 27015:27015 -p 27021:27021 -p 27015:27015/udp -p 27020:27020/udp -p 27025:27025 \
-            -p 28015:27015 -p 28015:27015/udp -p 27115:27015 -p 27115:27015/udp -p 27215:27015 \
-            -p 27215:27015/udp -p 27315:27015 -p 27315:27015/udp -p 27415:27015 -p 27415:27015/udp \
-            -p 27515:27015 -p 27515:27015/udp -p 27615:27015 -p 27615:27015/udp -p 27715:27015 \
-            -p 27715:27015/udp -p 27815:27015 -p 27815:27015/udp -p 27915:27015 -p 27915:27015/udp \
-            {image}
-            ",
-            name = config.name,
-            tv_name = config.tv_name,
-            password = config.password,
-            rcon = config.rcon,
-            demostf = config
-                .demostf_key
-                .as_ref()
-                .map(String::as_str)
-                .unwrap_or_default(),
-            logstf = config
-                .logstf_key
-                .as_ref()
-                .map(String::as_str)
-                .unwrap_or_default(),
-            league = config.config_league,
-            mode = config.config_mode,
-            image = config.image
-        ))
-        .await?;
-
-        Ok(server)
     }
 }
 
