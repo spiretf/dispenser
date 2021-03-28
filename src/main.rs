@@ -140,7 +140,8 @@ fn stop_job(cloud: Arc<dyn Cloud>, config: &Config, server_id: Arc<Mutex<Option<
         let server_id = server_id.clone();
         let cloud = cloud.clone();
         spawn(async move {
-            if let Some(id) = server_id.lock().unwrap().take() {
+            let id = server_id.lock().unwrap().take();
+            if let Some(id) = id {
                 println!("Stopping server {}", id);
                 match cloud.kill(&id).await {
                     Ok(_) => {}
