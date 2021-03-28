@@ -4,6 +4,7 @@ use camino::Utf8PathBuf;
 use serde::Deserialize;
 use std::fs::read_to_string;
 use std::path::Path;
+use std::sync::Arc;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -31,6 +32,8 @@ impl From<toml::de::Error> for TomlError {
 pub struct Config {
     pub vultr: Option<VultrConfig>,
     pub server: ServerConfig,
+    pub dyndns: Option<DynDnsConfig>,
+    pub schedule: ScheduleConfig,
 }
 
 impl Config {
@@ -39,9 +42,9 @@ impl Config {
         Ok(toml::from_str(&content).map_err(TomlError::from)?)
     }
 
-    pub fn cloud(&self) -> Result<Box<dyn Cloud>, ConfigError> {
+    pub fn cloud(&self) -> Result<Arc<dyn Cloud>, ConfigError> {
         if let Some(vultr) = &self.vultr {
-            Ok(Box::new(Vultr::new(
+            Ok(Arc::new(Vultr::new(
                 vultr.api_key.clone(),
                 vultr.region.clone(),
                 vultr.plan.clone(),
@@ -102,4 +105,18 @@ pub struct VultrConfig {
 
 fn vultr_default_plan() -> String {
     String::from("vc2-1c-2gb")
+}
+
+#[derive(Deserialize, Debug)]
+pub struct DynDnsConfig {
+    pub update_url: String,
+    pub hostname: String,
+    pub username: String,
+    pub password: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ScheduleConfig {
+    pub start: String,
+    pub stop: String,
 }

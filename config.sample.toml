@@ -1,0 +1,28 @@
+[server] # configuration details for the tf2 server
+rcon = "xxx" # rcon password
+password = "xxx" # server password
+demostf_key = "xxx" # api key for demos.tf
+logstf_key = "xxx" # api key for logs.tf
+config_league = "etf2l" # etf2l or #ugc. optional, defaults to "etf2l"
+config_mode = "6v6" # 6v6 or 9v9, defaults to "6v6"
+name = "Spire" # server name. optional, defaults to "Spire"
+tv_name = "SpireTV" # stv name. optional, defaults to "SpireTV"
+image = "spiretf/docker-spire-server" # docker image for the tf2 server. optional, defaults to "spiretf/docker-spire-server"
+
+[vultr]
+api_key = "xxx"
+region = "ams" # see https://api.vultr.com/v2/regions for a list of regions
+plan = "vc2-1c-2gb" # optional, defaults to vc2-1c-2gb (2GB, $10/month) see https://api.vultr.com/v2/plans for a lis of plan
+
+[dyndns] # optional dyndns2 details
+update_url = "https://update.eurodyndns.org/update/" # Update url for dyndns2
+hostname = "nipple.tf"
+username = "xxx"
+password = "xxx"
+
+[schedule]
+
+#        sec min hour day-of-month month day-of-week
+start = "0   0   17   *            *     Sun" # cron string to start the server on
+stop =  "0   0   23   *            *     Sun" # cron string to stop the server on
+# note that the above is in UTC

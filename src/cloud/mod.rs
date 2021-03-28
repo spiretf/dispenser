@@ -59,7 +59,7 @@ impl From<reqwest::Error> for ResponseError {
 pub type Result<T, E = CloudError> = std::result::Result<T, E>;
 
 #[async_trait]
-pub trait Cloud {
+pub trait Cloud: Send + Sync + 'static {
     /// List all running servers on this cloud
     async fn list(&self) -> Result<Vec<Server>>;
     /// Create a new server with the given parameter

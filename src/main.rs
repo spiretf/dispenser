@@ -1,18 +1,20 @@
-use std::env::args;
-
-use thiserror::Error;
-
-use ssh::SshSession;
-
-use crate::cloud::CloudError;
+use crate::cloud::{Cloud, CloudError};
 use crate::config::{Config, ConfigError, ServerConfig};
+use crate::dns::{DynDnsClient, DynDnsError};
 use crate::ssh::SshError;
+use ssh::SshSession;
+use std::env::args;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use thiserror::Error;
+use tokio::task::{spawn, JoinError};
 use tokio::time::sleep;
+use tokio_cron_scheduler::{Job, JobScheduler};
 
-pub mod cloud;
-pub mod config;
-pub mod ssh;
+mod cloud;
+mod config;
+mod dns;
+mod ssh;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -24,6 +26,30 @@ pub enum Error {
     Ssh(#[from] SshError),
     #[error("Setup command returned an error: {0}")]
     SetupError(String),
+    #[error("Error while updating dyndns: {0}")]
+    DynDns(#[from] DynDnsError),
+    #[error("Already running")]
+    AlreadyRunning,
+    #[error("{0}")]
+    Schedule(ScheduleError),
+}
+
+#[derive(Debug, Error)]
+#[error("{0}")]
+pub struct ScheduleError(ScheduleErrorImpl);
+
+#[derive(Debug, Error)]
+enum ScheduleErrorImpl {
+    #[error("Error setting up schedule")]
+    Schedule(String),
+    #[error("Error running schedule")]
+    Join(JoinError),
+}
+
+impl From<ScheduleErrorImpl> for Error {
+    fn from(e: ScheduleErrorImpl) -> Self {
+        Error::Schedule(ScheduleError(e))
+    }
 }
 
 async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error> {
@@ -79,6 +105,8 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
+    pretty_env_logger::init();
+
     let mut args = args();
     let bin = args.next().unwrap();
 
@@ -91,12 +119,85 @@ async fn main() -> Result<(), Error> {
     };
     let cloud = config.cloud()?;
 
+    let mut sched = JobScheduler::new();
+
+    let server_id: Arc<Mutex<Option<String>>> = Arc::default();
+
+    sched
+        .add(stop_job(cloud.clone(), &config, server_id.clone()))
+        .map_err(|e| ScheduleErrorImpl::Schedule(format!("{:#}", e)))?;
+    sched
+        .add(start_job(cloud, config, server_id))
+        .map_err(|e| ScheduleErrorImpl::Schedule(format!("{:#}", e)))?;
+
+    sched.start().await.map_err(ScheduleErrorImpl::Join)?;
+
+    Ok(())
+}
+
+fn stop_job(_cloud: Arc<dyn Cloud>, config: &Config, server_id: Arc<Mutex<Option<String>>>) -> Job {
+    Job::new(&config.schedule.stop, move |_uuid, _l| {
+        let server_id = server_id.clone();
+        spawn(async move {
+            println!("Stopping server");
+            if let Some(id) = server_id.lock().unwrap().take() {
+                println!("Would have killed {}", id);
+                // match cloud.kill(&id).await {
+                //     Ok(_) => {}
+                //     Err(e) => eprintln!("{:#}", e),
+                // };
+            }
+        });
+    })
+    .unwrap()
+}
+
+fn start_job(cloud: Arc<dyn Cloud>, config: Config, server_id: Arc<Mutex<Option<String>>>) -> Job {
+    let schedule = config.schedule.start.clone();
+    let config = Arc::new(config);
+    Job::new(&schedule, move |_uuid, _l| {
+        let cloud = cloud.clone();
+        let config = config.clone();
+        let server_id = server_id.clone();
+        spawn(async move {
+            let cloud = cloud.as_ref();
+            println!("Starting server");
+            match start(cloud, &config).await {
+                Ok(id) => *server_id.lock().unwrap() = Some(id),
+                Err(e) => eprintln!("{:#}", e),
+            };
+        });
+    })
+    .unwrap()
+}
+
+async fn start(cloud: &dyn Cloud, config: &Config) -> Result<String, Error> {
+    let list = cloud.list().await?;
+    if !list.is_empty() {
+        return Err(Error::AlreadyRunning);
+    }
     let created = cloud.spawn().await?;
     let server = cloud.wait_for_ip(&created.id).await?;
 
     println!("Server is booting");
     println!("  IP: {}", server.ip);
-    println!("  Password: {}", created.password);
+    println!("  Root Password: {}", created.password);
+
+    let connect_host = if let Some(dns_config) = config.dyndns.as_ref() {
+        let dns = DynDnsClient::new(
+            dns_config.update_url.to_string(),
+            dns_config.username.to_string(),
+            dns_config.password.to_string(),
+        );
+        println!(
+            "Updating DynDNS entry for {} to {}",
+            dns_config.hostname, server.ip
+        );
+        dns.update(&dns_config.hostname, server.ip).await?;
+        dns_config.hostname.to_string()
+    } else {
+        format!("{}", server.ip)
+    };
 
     let mut ssh = SshSession::open(server.ip, &created.password).await?;
     setup(&mut ssh, &config.server).await?;
@@ -106,8 +207,7 @@ async fn main() -> Result<(), Error> {
     println!("Connect using");
     println!(
         "  connect {}; password {}",
-        server.ip, config.server.password
+        connect_host, config.server.password
     );
-
-    Ok(())
+    Ok(server.id)
 }
