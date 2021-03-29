@@ -74,8 +74,15 @@ impl Cloud for Vultr {
         }
     }
 
-    async fn kill(&self, _id: &str) -> Result<()> {
-        todo!()
+    async fn kill(&self, id: &str) -> Result<()> {
+        let response = self
+            .client
+            .delete(format!("https://api.vultr.com/v2/instances/{}", id))
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(NetworkError::from)?;
+        CloudError::from_status_code(response.status())
     }
 
     async fn wait_for_ip(&self, id: &str) -> Result<Server> {

@@ -17,4 +17,4 @@ FROM alpine:latest
 
 COPY --from=build /home/rust/src/target/x86_64-unknown-linux-musl/release/dispenser /
 
-CMD ["/dispenser" "/config.toml"]
+CMD ["/dispenser", "/config.toml"]
