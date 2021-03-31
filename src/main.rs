@@ -100,6 +100,12 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
     if !result.success() {
         return Err(Error::SetupError(result.output()));
     }
+
+    ssh.exec("dd if=/dev/zero of=/swapfile bs=1M count=512")
+        .await?;
+    ssh.exec("chmod 600 /swapfile").await?;
+    ssh.exec("mkswap /swapfile").await?;
+    ssh.exec("swapon /swapfile").await?;
     Ok(())
 }
 
