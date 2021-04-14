@@ -103,9 +103,8 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
 
     ssh.exec("dd if=/dev/zero of=/swapfile bs=1M count=1024")
         .await?;
-    ssh.exec("chmod 600 /swapfile").await?;
-    ssh.exec("mkswap /swapfile").await?;
-    ssh.exec("swapon /swapfile").await?;
+    ssh.exec("chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile")
+        .await?;
     Ok(())
 }
 
