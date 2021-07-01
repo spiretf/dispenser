@@ -48,7 +48,12 @@ impl Cloud for Vultr {
             .collect())
     }
 
-    async fn spawn(&self) -> Result<Created> {
+    async fn spawn(&self, ssh_key_id: Option<&str>) -> Result<Created> {
+        let key_ids = if let Some(key) = ssh_key_id {
+            vec![key]
+        } else {
+            vec![]
+        };
         let response = self
             .client
             .post("https://api.vultr.com/v2/instances")
@@ -59,6 +64,7 @@ impl Cloud for Vultr {
                 tag: "spire",
                 label: petname(2, "-"),
                 app_id: self.get_app_id("docker").await?,
+                sshkey_id: &key_ids,
             })
             .send()
             .await
@@ -95,6 +101,49 @@ impl Cloud for Vultr {
             }
         };
         Ok(instance.into())
+    }
+
+    async fn get_ssh_key_id(&self, ssh_key: &str) -> Result<String> {
+        let response = self
+            .client
+            .get("https://api.vultr.com/v2/ssh-keys")
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(NetworkError::from)?;
+        CloudError::from_status_code(response.status())?;
+
+        if !response.status().is_success() {
+            return Err(
+                ResponseError::Other(response.text().await.map_err(NetworkError::from)?).into(),
+            );
+        }
+
+        let response: VultrSshListResponse = response.json().await.map_err(ResponseError::from)?;
+        if let Some(key) = response
+            .ssh_keys
+            .into_iter()
+            .find(|key| key.ssh_key == ssh_key)
+        {
+            Ok(key.id)
+        } else {
+            let response = self
+                .client
+                .post("https://api.vultr.com/v2/ssh-keys")
+                .bearer_auth(&self.token)
+                .json(&VultrCreateSshKeyParams {
+                    name: "Dispenser Key",
+                    ssh_key,
+                })
+                .send()
+                .await
+                .map_err(NetworkError::from)?;
+            CloudError::from_status_code(response.status())?;
+            let response: VultrSshCreateResponse =
+                response.json().await.map_err(ResponseError::from)?;
+
+            Ok(response.ssh_key.id)
+        }
     }
 }
 
@@ -139,6 +188,7 @@ struct VultrCreateParams<'a> {
     tag: &'a str,
     label: String,
     app_id: u16,
+    sshkey_id: &'a [&'a str],
 }
 
 #[derive(Debug, Deserialize)]
@@ -202,4 +252,27 @@ struct VultrApplicationsResponse {
 struct VultrApplicationResponse {
     id: u16,
     short_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct VultrSshListResponse {
+    ssh_keys: Vec<VultrSshKeyResponse>,
+}
+
+#[derive(Debug, Deserialize)]
+struct VultrSshCreateResponse {
+    ssh_key: VultrSshKeyResponse,
+}
+
+#[derive(Debug, Deserialize)]
+struct VultrSshKeyResponse {
+    id: String,
+    name: String,
+    ssh_key: String,
+}
+
+#[derive(Serialize)]
+struct VultrCreateSshKeyParams<'a> {
+    name: &'a str,
+    ssh_key: &'a str,
 }

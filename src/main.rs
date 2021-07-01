@@ -187,7 +187,14 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<String, Error> {
     if !list.is_empty() {
         return Err(Error::AlreadyRunning);
     }
-    let created = cloud.spawn().await?;
+
+    let ssh_key = if let Some(key) = config.server.ssh_key.as_ref() {
+        Some(cloud.get_ssh_key_id(key).await?)
+    } else {
+        None
+    };
+
+    let created = cloud.spawn(ssh_key.as_deref()).await?;
     let server = cloud.wait_for_ip(&created.id).await?;
 
     println!("Server is booting");
