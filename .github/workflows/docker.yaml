@@ -22,6 +22,6 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: spiretf/dispsenser:latest
+          tags: spiretf/dispenser:latest
       - name: Image digest
         run: echo ${{ steps.docker_build.outputs.digest }}
