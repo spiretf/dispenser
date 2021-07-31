@@ -13,7 +13,7 @@ RUN sudo chown -R rust:rust . && \
  touch src/main.rs && \
  cargo build --release
 
-FROM alpine:latest
+FROM scratch
 
 COPY --from=build /home/rust/src/target/x86_64-unknown-linux-musl/release/dispenser /
 

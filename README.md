@@ -18,10 +18,6 @@ This does mean that if the program is (re-)started while a server is already act
 start and destroy any server because it can't be sure it should control the running server.
 You'll need to manually destroy the existing server in that case.
 
-## Dependencies
-
-- requires openssl 1.1 
-
 ## TODO
 
 - [ ] don't blindly kill server if there are players connected
