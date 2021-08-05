@@ -1,19 +1,24 @@
-use crate::cloud::{Cloud, CloudError};
+use crate::cloud::{Cloud, CloudError, Server};
 use crate::config::{Config, ConfigError, ServerConfig};
 use crate::dns::{DynDnsClient, DynDnsError};
+use crate::rcon::Rcon;
 use crate::ssh::SshError;
+use chrono::Utc;
+use cron::Schedule;
 use ssh::SshSession;
 use std::env::args;
-use std::sync::{Arc, Mutex};
+use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
-use tokio::task::{spawn, JoinError};
+use tokio::select;
+use tokio::signal::ctrl_c;
 use tokio::time::sleep;
-use tokio_cron_scheduler::{Job, JobScheduler};
 
 mod cloud;
 mod config;
 mod dns;
+mod rcon;
 mod ssh;
 
 #[derive(Debug, Error)]
@@ -31,25 +36,9 @@ pub enum Error {
     #[error("Already running")]
     AlreadyRunning,
     #[error("{0}")]
-    Schedule(ScheduleError),
-}
-
-#[derive(Debug, Error)]
-#[error("{0}")]
-pub struct ScheduleError(ScheduleErrorImpl);
-
-#[derive(Debug, Error)]
-enum ScheduleErrorImpl {
-    #[error("Error setting up schedule")]
-    Schedule(String),
-    #[error("Error running schedule")]
-    Join(JoinError),
-}
-
-impl From<ScheduleErrorImpl> for Error {
-    fn from(e: ScheduleErrorImpl) -> Self {
-        Error::Schedule(ScheduleError(e))
-    }
+    Schedule(#[from] cron::error::Error),
+    #[error("{0}")]
+    Rcon(#[from] ::rcon::Error),
 }
 
 async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error> {
@@ -124,65 +113,80 @@ async fn main() -> Result<(), Error> {
     };
     let cloud = config.cloud()?;
 
-    let mut sched = JobScheduler::new();
+    let start_schedule = Schedule::from_str(&config.schedule.start)?;
+    let stop_schedule = Schedule::from_str(&config.schedule.stop)?;
 
-    let server_id: Arc<Mutex<Option<String>>> = Arc::default();
-
-    sched
-        .add(stop_job(cloud.clone(), &config, server_id.clone()))
-        .map_err(|e| ScheduleErrorImpl::Schedule(format!("{:#}", e)))?;
-    sched
-        .add(start_job(cloud, config, server_id))
-        .map_err(|e| ScheduleErrorImpl::Schedule(format!("{:#}", e)))?;
-
-    sched.start().await.map_err(ScheduleErrorImpl::Join)?;
+    select! {
+        _ = run_loop(cloud, config, start_schedule, stop_schedule) => {},
+        _ = ctrl_c() => {},
+    }
 
     Ok(())
 }
 
-fn stop_job(cloud: Arc<dyn Cloud>, config: &Config, server_id: Arc<Mutex<Option<String>>>) -> Job {
-    Job::new(&config.schedule.stop, move |_uuid, _l| {
-        let server_id = server_id.clone();
-        let cloud = cloud.clone();
-        spawn(async move {
-            let id = server_id.lock().unwrap().take();
-            if let Some(id) = id {
+async fn run_loop(
+    cloud: Arc<dyn Cloud>,
+    config: Config,
+    start_schedule: Schedule,
+    stop_schedule: Schedule,
+) {
+    let mut active_server: Option<Server> = None;
+
+    loop {
+        let next_start = start_schedule.upcoming(Utc).next().unwrap();
+        let next_stop = stop_schedule.upcoming(Utc).next().unwrap();
+
+        // we're between start time and stop time
+        if active_server.is_none() && next_start > next_stop {
+            println!("Starting server");
+            match start(cloud.as_ref(), &config).await {
+                Ok(server) => active_server = Some(server),
+                Err(e) => eprintln!("{:#}", e),
+            };
+        }
+
+        // we're between stop time and start time
+        if active_server.is_some() && next_stop > next_start {
+            let active_players_res = match Rcon::new(
+                (active_server.as_ref().unwrap().ip, 27015),
+                &config.server.rcon,
+            )
+            .await
+            {
+                Ok(mut rcon) => rcon.player_count().await,
+                Err(e) => Err(e),
+            };
+            let stop = match active_players_res {
+                Ok(0) => true,
+                Ok(count) => {
+                    println!(
+                        "Want to stop server, but there are still {} active players",
+                        count
+                    );
+                    false
+                }
+                Err(e) => {
+                    eprintln!("{}", e);
+                    true
+                }
+            };
+            if stop {
+                let id = &active_server.as_ref().unwrap().id;
                 println!("Stopping server {}", id);
                 match cloud.kill(&id).await {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        active_server = None;
+                    }
                     Err(e) => eprintln!("{:#}", e),
-                };
-            } else {
-                println!("No server to stop")
+                }
             }
-        });
-    })
-    .unwrap()
+        }
+
+        sleep(Duration::from_secs(60)).await;
+    }
 }
 
-fn start_job(cloud: Arc<dyn Cloud>, config: Config, server_id: Arc<Mutex<Option<String>>>) -> Job {
-    let schedule = config.schedule.start.clone();
-    let config = Arc::new(config);
-    Job::new(&schedule, move |_uuid, _l| {
-        let cloud = cloud.clone();
-        let config = config.clone();
-        let server_id = server_id.clone();
-        spawn(async move {
-            let cloud = cloud.as_ref();
-            let already_started = { server_id.lock().unwrap().is_some() };
-            if !already_started {
-                println!("Starting server");
-                match start(cloud, &config).await {
-                    Ok(id) => *server_id.lock().unwrap() = Some(id),
-                    Err(e) => eprintln!("{:#}", e),
-                };
-            }
-        });
-    })
-    .unwrap()
-}
-
-async fn start(cloud: &dyn Cloud, config: &Config) -> Result<String, Error> {
+async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     let list = cloud.list().await?;
     if !list.is_empty() {
         return Err(Error::AlreadyRunning);
@@ -227,5 +231,5 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<String, Error> {
         "  connect {}; password {}",
         connect_host, config.server.password
     );
-    Ok(server.id)
+    Ok(server)
 }

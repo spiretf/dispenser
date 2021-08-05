@@ -11,11 +11,12 @@ thiserror = "1"
 reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.5"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
 camino = "1"
 petname = "1"
 thrussh = "0.33"
 thrussh-keys = "0.21"
 futures-util = "0.3"
 pretty_env_logger = "0.4"
-tokio-cron-scheduler = "0.2"
+cron = "0.9"
+rcon = "0.4"
