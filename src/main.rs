@@ -130,7 +130,15 @@ async fn run_loop(
     start_schedule: Schedule,
     stop_schedule: Schedule,
 ) {
-    let mut active_server: Option<Server> = None;
+    let mut active_server = if config.server.manage_existing {
+        cloud
+            .list()
+            .await
+            .map(|servers| servers.into_iter().next())
+            .unwrap_or_default()
+    } else {
+        None
+    };
 
     loop {
         let next_start = start_schedule.upcoming(Utc).next().unwrap();

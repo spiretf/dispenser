@@ -9,6 +9,7 @@ name = "Spire" # server name. optional, defaults to "Spire"
 tv_name = "SpireTV" # stv name. optional, defaults to "SpireTV"
 image = "spiretf/docker-spire-server" # docker image for the tf2 server. optional, defaults to "spiretf/docker-spire-server"
 ssh_key = "ssh-rsa AAAA..." # ssh key to add to the server. optional
+manage_existing = false # whether to detect and manage server that are already running, optional, disabled by default
 
 [vultr]
 api_key = "xxx"

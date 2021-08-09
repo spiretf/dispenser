@@ -14,6 +14,7 @@ impl Rcon {
         let player_lines = status
             .lines()
             .filter(|line| line.starts_with('#'))
+            .filter(|line| !line.contains("# userid"))
             .filter(|line| !line.contains(" BOT "));
         Ok(player_lines.count())
     }

@@ -72,6 +72,8 @@ pub struct ServerConfig {
     #[serde(default = "server_default_tv_name")]
     pub tv_name: String,
     pub ssh_key: Option<String>,
+    #[serde(default)]
+    pub manage_existing: bool,
 }
 
 fn server_default_image() -> String {
