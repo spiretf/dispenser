@@ -131,11 +131,7 @@ async fn run_loop(
     stop_schedule: Schedule,
 ) {
     let mut active_server = if config.server.manage_existing {
-        cloud
-            .list()
-            .await
-            .map(|servers| servers.into_iter().next())
-            .unwrap_or_default()
+        cloud.list().await.into_iter().flatten().next()
     } else {
         None
     };
