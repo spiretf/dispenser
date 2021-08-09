@@ -12,11 +12,13 @@ and install a tf2 server.
 This server is then destroyed when the stop schedule is reached.
 
 As a failsafe against unexpected costs or destroying the wrong server, this program will not spawn any server
-if it already detects a running one and it will only destroy a server that was created by the program.
+if it already detects a running one, and it will only destroy a server that was created by the program.
 
 This does mean that if the program is (re-)started while a server is already active, the program will not
 start and destroy any server because it can't be sure it should control the running server.
 You'll need to manually destroy the existing server in that case.
+
+You can overwrite this behavior by setting `manage_existing = true` in your `config.toml`,  
 
 ## TODO
 
