@@ -193,6 +193,7 @@ async fn run_loop(
 async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     let list = cloud.list().await?;
     if !list.is_empty() {
+        eprintln!("Non empty server list while starting: {:?}", list);
         return Err(Error::AlreadyRunning);
     }
 
