@@ -39,7 +39,7 @@ impl CloudError {
 #[derive(Debug, Error)]
 pub enum ResponseError {
     #[error("{0}")]
-    JSON(reqwest::Error),
+    Json(reqwest::Error),
     #[error("Unexpected response {0}")]
     Other(String),
 }
@@ -52,7 +52,7 @@ impl From<reqwest::Error> for NetworkError {
 
 impl From<reqwest::Error> for ResponseError {
     fn from(e: reqwest::Error) -> Self {
-        ResponseError::JSON(e)
+        ResponseError::Json(e)
     }
 }
 

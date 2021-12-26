@@ -206,6 +206,7 @@ struct VultrCreateResponse {
     instance: VultrCreatedInstanceResponse,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct VultrInstanceResponse {
     id: String,
@@ -264,6 +265,7 @@ struct VultrSshCreateResponse {
     ssh_key: VultrSshKeyResponse,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 struct VultrSshKeyResponse {
     id: String,

@@ -71,14 +71,10 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
             password = config.password,
             rcon = config.rcon,
             demostf = config
-                .demostf_key
-                .as_ref()
-                .map(String::as_str)
+                .demostf_key.as_deref()
                 .unwrap_or_default(),
             logstf = config
-                .logstf_key
-                .as_ref()
-                .map(String::as_str)
+                .logstf_key.as_deref()
                 .unwrap_or_default(),
             league = config.config_league,
             mode = config.config_mode,
@@ -177,7 +173,7 @@ async fn run_loop(
             if stop {
                 let id = &active_server.as_ref().unwrap().id;
                 println!("Stopping server {}", id);
-                match cloud.kill(&id).await {
+                match cloud.kill(id).await {
                     Ok(_) => {
                         active_server = None;
                     }

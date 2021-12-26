@@ -96,7 +96,7 @@ impl SshSession {
         while let Some(msg) = channel.wait().await {
             match msg {
                 thrussh::ChannelMsg::Data { ref data } => {
-                    output.write_all(&data).unwrap();
+                    output.write_all(data).unwrap();
                 }
                 thrussh::ChannelMsg::ExitStatus { exit_status } => {
                     code = Some(exit_status);
