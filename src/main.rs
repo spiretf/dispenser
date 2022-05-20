@@ -14,6 +14,7 @@ use thiserror::Error;
 use tokio::select;
 use tokio::signal::ctrl_c;
 use tokio::time::sleep;
+use tracing::{debug, error, info, instrument, warn};
 
 mod cloud;
 mod config;
@@ -41,18 +42,25 @@ pub enum Error {
     Rcon(#[from] ::rcon::Error),
 }
 
+#[instrument(skip(config))]
 async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error> {
     let mut tries = 0;
+
+    debug!(image = display(&config.image), "pulling image");
     loop {
         tries += 1;
         sleep(Duration::from_secs(1)).await;
-        let result = ssh.exec("docker pull spiretf/docker-spire-server").await?;
+        let result = ssh.exec(format!("docker pull {}", config.image)).await?;
         if result.success() {
             break;
         } else if tries > 5 {
             return Err(Error::SetupError(result.output()));
+        } else {
+            error!(tries = tries, "Failed to pull docker image, retrying");
         }
     }
+
+    debug!("starting container");
     let result = ssh
         .exec(format!(
             "docker run --name spire -d \
@@ -82,6 +90,7 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
         return Err(Error::SetupError(result.output()));
     }
 
+    debug!("setting up swap");
     ssh.exec("dd if=/dev/zero of=/swapfile bs=1M count=1024")
         .await?;
     ssh.exec("chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile")
@@ -91,7 +100,7 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    pretty_env_logger::init();
+    tracing_subscriber::fmt::init();
 
     let mut args = args();
     let bin = args.next().unwrap();
@@ -138,6 +147,10 @@ async fn run_loop(
             match start(cloud.as_ref(), &config).await {
                 Ok(server) => active_server = Some(server),
                 Err(Error::AlreadyRunning(server)) if config.server.manage_existing => {
+                    info!(
+                        server = debug(&server),
+                        "Taking ownership of existing server"
+                    );
                     active_server = Some(server);
                 }
                 Err(e) => eprintln!("{:#}", e),
@@ -158,14 +171,14 @@ async fn run_loop(
             let stop = match active_players_res {
                 Ok(0) => true,
                 Ok(count) => {
-                    println!(
+                    info!(
                         "Want to stop server, but there are still {} active players",
                         count
                     );
                     false
                 }
                 Err(e) => {
-                    eprintln!("{}", e);
+                    error!("Error while trying get player count: {}", e);
                     true
                 }
             };
@@ -185,12 +198,13 @@ async fn run_loop(
     }
 }
 
+#[instrument(skip(cloud, config))]
 async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     let list = cloud.list().await?;
     let count = list.len();
     let first = list.into_iter().next();
     if let Some(first) = first {
-        eprintln!(
+        warn!(
             "Non empty server list while starting: {:?}, and {} more",
             first,
             count - 1

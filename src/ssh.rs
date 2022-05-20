@@ -1,4 +1,5 @@
 use futures_util::future::{self};
+use std::fmt::{Debug, Formatter};
 use std::io::Write;
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -8,6 +9,7 @@ use thrussh::client::Handle;
 use thrussh::*;
 use thrussh_keys::key::PublicKey;
 use tokio::time::{sleep, timeout};
+use tracing::instrument;
 
 struct Client {}
 
@@ -56,10 +58,20 @@ impl client::Handler for Client {
 }
 
 pub struct SshSession {
+    ip: IpAddr,
     handle: Handle<Client>,
 }
 
+impl Debug for SshSession {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SshSession")
+            .field("ip", &format_args!("{}", self.ip))
+            .finish_non_exhaustive()
+    }
+}
+
 impl SshSession {
+    #[instrument(skip(password))]
     pub async fn open(ip: IpAddr, password: &str) -> Result<Self, SshError> {
         Ok(timeout(Duration::from_secs(5 * 60), async move {
             loop {
@@ -76,29 +88,33 @@ impl SshSession {
     }
 
     async fn open_impl(ip: IpAddr, password: &str) -> Result<Self, SshError> {
-        let config = thrussh::client::Config::default();
+        let config = client::Config::default();
         let config = Arc::new(config);
         let sh = Client {};
 
-        let mut handle = thrussh::client::connect(config, (ip, 22), sh).await?;
+        let mut handle = client::connect(config, (ip, 22), sh).await?;
         if handle.authenticate_password("root", password).await? {
-            Ok(SshSession { handle })
+            Ok(SshSession { ip, handle })
         } else {
             Err(SshError::Unauthorized)
         }
     }
 
-    pub async fn exec<S: Into<String>>(&mut self, cmd: S) -> Result<CommandResult, SshError> {
+    #[instrument]
+    pub async fn exec<S: Into<String> + Debug>(
+        &mut self,
+        cmd: S,
+    ) -> Result<CommandResult, SshError> {
         let mut channel = self.handle.channel_open_session().await?;
         channel.exec(true, cmd).await?;
         let mut output = Vec::new();
         let mut code = None;
         while let Some(msg) = channel.wait().await {
             match msg {
-                thrussh::ChannelMsg::Data { ref data } => {
+                ChannelMsg::Data { ref data } => {
                     output.write_all(data).unwrap();
                 }
-                thrussh::ChannelMsg::ExitStatus { exit_status } => {
+                ChannelMsg::ExitStatus { exit_status } => {
                     code = Some(exit_status);
                 }
                 _ => {}
@@ -107,6 +123,7 @@ impl SshSession {
         Ok(CommandResult { output, code })
     }
 
+    #[instrument]
     pub async fn close(mut self) -> Result<(), SshError> {
         self.handle
             .disconnect(Disconnect::ByApplication, "", "English")
