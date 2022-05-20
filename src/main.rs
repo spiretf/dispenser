@@ -139,6 +139,13 @@ async fn run_loop(
         None
     };
 
+    if let Some(server) = active_server.as_ref() {
+        info!(
+            server = debug(server),
+            "Taking ownership of existing server"
+        );
+    }
+
     loop {
         let next_start = start_schedule.upcoming(Utc).next().unwrap();
         let next_stop = stop_schedule.upcoming(Utc).next().unwrap();
