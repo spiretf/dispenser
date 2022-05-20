@@ -67,11 +67,8 @@ impl DynDnsClient {
         match text.as_str() {
             "badauth" => Err(DynDnsError::Unauthorized),
             "!yours" => Err(DynDnsError::NotYourDomain),
-            "nochg" => Ok(()),
-            "good" => Ok(()),
-            "notfqdn" => Err(DynDnsError::InvalidHostname),
-            "nohost" => Err(DynDnsError::InvalidHostname),
-            "numhost" => Err(DynDnsError::InvalidHostname),
+            "nochg" | "good" => Ok(()),
+            "notfqdn" | "nohost" | "numhost" => Err(DynDnsError::InvalidHostname),
             _ => Err(DynDnsError::InvalidResponse(text)),
         }
     }

@@ -1,4 +1,5 @@
 use futures_util::future::{self};
+use std::convert::identity;
 use std::fmt::{Debug, Formatter};
 use std::io::Write;
 use std::net::IpAddr;
@@ -32,10 +33,9 @@ pub struct SshErrorImpl(thrussh::Error);
 impl From<thrussh::Error> for SshError {
     fn from(e: thrussh::Error) -> Self {
         match e {
-            thrussh::Error::Disconnect => SshError::Disconnected,
-            thrussh::Error::HUP => SshError::Disconnected,
-            thrussh::Error::ConnectionTimeout => SshError::ConnectionTimeout,
-            thrussh::Error::IO(io) if io.raw_os_error() == Some(110) => SshError::ConnectionTimeout,
+            Error::Disconnect | Error::HUP => SshError::Disconnected,
+            Error::ConnectionTimeout => SshError::ConnectionTimeout,
+            Error::IO(io) if io.raw_os_error() == Some(110) => SshError::ConnectionTimeout,
             e => SshError::Other(SshErrorImpl(e)),
         }
     }
@@ -73,7 +73,7 @@ impl Debug for SshSession {
 impl SshSession {
     #[instrument(skip(password))]
     pub async fn open(ip: IpAddr, password: &str) -> Result<Self, SshError> {
-        Ok(timeout(Duration::from_secs(5 * 60), async move {
+        timeout(Duration::from_secs(5 * 60), async move {
             loop {
                 sleep(Duration::from_secs(1)).await;
                 match SshSession::open_impl(ip, password).await {
@@ -84,7 +84,8 @@ impl SshSession {
             }
         })
         .await
-        .map_err(|_| SshError::ConnectionTimeout)??)
+        .map_err(|_| SshError::ConnectionTimeout)
+        .and_then(identity)
     }
 
     async fn open_impl(ip: IpAddr, password: &str) -> Result<Self, SshError> {
