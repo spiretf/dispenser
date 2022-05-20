@@ -18,5 +18,5 @@ thrussh = "0.33"
 thrussh-keys = "0.21"
 futures-util = "0.3"
 pretty_env_logger = "0.4"
-cron = "0.9"
-rcon = "0.4"
+cron = "0.11.0"
+rcon = { version = "0.6.0", features = ["rt-tokio"] }

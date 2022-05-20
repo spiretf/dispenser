@@ -1,8 +1,8 @@
 use crate::Error;
 use rcon::Connection;
-use tokio::net::ToSocketAddrs;
+use tokio::net::{TcpStream, ToSocketAddrs};
 
-pub struct Rcon(Connection);
+pub struct Rcon(Connection<TcpStream>);
 
 impl Rcon {
     pub async fn new<A: ToSocketAddrs>(host: A, password: &str) -> Result<Self, Error> {
