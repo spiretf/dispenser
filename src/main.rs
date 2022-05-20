@@ -44,6 +44,8 @@ pub enum Error {
 
 #[instrument(skip(config))]
 async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error> {
+    sleep(Duration::from_secs(10)).await;
+
     let mut tries = 0;
 
     debug!(image = display(&config.image), "pulling image");
