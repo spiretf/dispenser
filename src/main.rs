@@ -34,7 +34,7 @@ pub enum Error {
     #[error("Error while updating dyndns: {0}")]
     DynDns(#[from] DynDnsError),
     #[error("Already running")]
-    AlreadyRunning,
+    AlreadyRunning(Server),
     #[error("{0}")]
     Schedule(#[from] cron::error::Error),
     #[error("{0}")]
@@ -70,12 +70,8 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
             tv_name = config.tv_name,
             password = config.password,
             rcon = config.rcon,
-            demostf = config
-                .demostf_key.as_deref()
-                .unwrap_or_default(),
-            logstf = config
-                .logstf_key.as_deref()
-                .unwrap_or_default(),
+            demostf = config.demostf_key.as_deref().unwrap_or_default(),
+            logstf = config.logstf_key.as_deref().unwrap_or_default(),
             league = config.config_league,
             mode = config.config_mode,
             image = config.image
@@ -141,6 +137,9 @@ async fn run_loop(
             println!("Starting server");
             match start(cloud.as_ref(), &config).await {
                 Ok(server) => active_server = Some(server),
+                Err(Error::AlreadyRunning(server)) if config.server.manage_existing => {
+                    active_server = Some(server);
+                }
                 Err(e) => eprintln!("{:#}", e),
             };
         }
@@ -188,9 +187,15 @@ async fn run_loop(
 
 async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     let list = cloud.list().await?;
-    if !list.is_empty() {
-        eprintln!("Non empty server list while starting: {:?}", list);
-        return Err(Error::AlreadyRunning);
+    let count = list.len();
+    let first = list.into_iter().next();
+    if let Some(first) = first {
+        eprintln!(
+            "Non empty server list while starting: {:?}, and {} more",
+            first,
+            count - 1
+        );
+        return Err(Error::AlreadyRunning(first));
     }
 
     let ssh_key = if let Some(key) = config.server.ssh_key.as_ref() {
