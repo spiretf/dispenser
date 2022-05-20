@@ -22,5 +22,5 @@ You can overwrite this behavior by setting `manage_existing = true` in your `con
 
 ## TODO
 
-- [ ] don't blindly kill server if there are players connected
+- [x] don't blindly kill server if there are players connected
 - [ ] kill the server earlier if everyone disconnected
