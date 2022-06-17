@@ -65,6 +65,7 @@ impl Cloud for Vultr {
                 label: petname(2, "-"),
                 app_id: self.get_app_id("docker").await?,
                 sshkey_id: &key_ids,
+                enable_ipv6: true,
             })
             .send()
             .await
@@ -189,6 +190,7 @@ struct VultrCreateParams<'a> {
     label: String,
     app_id: u16,
     sshkey_id: &'a [&'a str],
+    enable_ipv6: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -213,6 +215,7 @@ struct VultrInstanceResponse {
     os: String,
     ram: u64,
     main_ip: IpAddr,
+    v6_main_ip: Option<IpAddr>,
     region: String,
     vcpu_count: u16,
     date_created: DateTime<Utc>,
@@ -231,6 +234,7 @@ impl From<VultrInstanceResponse> for Server {
             id: instance.id,
             created: instance.date_created,
             ip: instance.main_ip,
+            ip_v6: instance.v6_main_ip,
         }
     }
 }

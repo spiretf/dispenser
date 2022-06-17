@@ -77,6 +77,7 @@ pub struct Server {
     pub id: String,
     pub created: DateTime<Utc>,
     pub ip: IpAddr,
+    pub ip_v6: Option<IpAddr>,
 }
 
 #[derive(Debug)]
