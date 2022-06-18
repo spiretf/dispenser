@@ -1,6 +1,10 @@
-use crate::cloud::{Cloud, CloudError, Created, NetworkError, ResponseError, Result, Server};
+use crate::cloud::{
+    Cloud, CloudError, Created, CreatedAuth, NetworkError, ResponseError, Result, Server,
+};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use futures_util::stream::FuturesUnordered;
+use futures_util::TryStreamExt;
 use petname::petname;
 use reqwest::Client;
 use serde::{Deserialize, Deserializer, Serialize};
@@ -48,12 +52,14 @@ impl Cloud for Vultr {
             .collect())
     }
 
-    async fn spawn(&self, ssh_key_id: Option<&str>) -> Result<Created> {
-        let key_ids = if let Some(key) = ssh_key_id {
-            vec![key]
-        } else {
-            vec![]
-        };
+    async fn spawn(&self, ssh_keys: &[String]) -> Result<Created> {
+        let key_ids = ssh_keys
+            .iter()
+            .map(|key| self.get_ssh_key_id(key))
+            .collect::<FuturesUnordered<_>>()
+            .try_collect::<Vec<String>>()
+            .await?;
+
         let response = self
             .client
             .post("https://api.vultr.com/v2/instances")
@@ -64,7 +70,7 @@ impl Cloud for Vultr {
                 tag: "spire",
                 label: petname(2, "-"),
                 app_id: self.get_app_id("docker").await?,
-                sshkey_id: &key_ids,
+                sshkey_id: key_ids,
                 enable_ipv6: true,
             })
             .send()
@@ -102,6 +108,40 @@ impl Cloud for Vultr {
             }
         };
         Ok(instance.into())
+    }
+}
+
+impl Vultr {
+    async fn get_app_id(&self, short_name: &str) -> Result<u16> {
+        let response = self
+            .client
+            .get("https://api.vultr.com/v2/applications")
+            .send()
+            .await
+            .map_err(NetworkError::from)?;
+        let response: VultrApplicationsResponse =
+            response.json().await.map_err(ResponseError::from)?;
+        Ok(response
+            .applications
+            .into_iter()
+            .find_map(|application| (application.short_name == short_name).then(|| application.id))
+            .ok_or_else(|| {
+                ResponseError::Other(format!("Application \"{}\" not found", short_name))
+            })?)
+    }
+
+    async fn get_instance(&self, id: &str) -> Result<VultrInstanceResponse> {
+        let response = self
+            .client
+            .get(format!("https://api.vultr.com/v2/instances/{}", id))
+            .bearer_auth(&self.token)
+            .send()
+            .await
+            .map_err(NetworkError::from)?;
+        CloudError::from_status_code(response.status())?;
+
+        let response: VultrGetResponse = response.json().await.map_err(ResponseError::from)?;
+        Ok(response.instance)
     }
 
     async fn get_ssh_key_id(&self, ssh_key: &str) -> Result<String> {
@@ -148,40 +188,6 @@ impl Cloud for Vultr {
     }
 }
 
-impl Vultr {
-    async fn get_app_id(&self, short_name: &str) -> Result<u16> {
-        let response = self
-            .client
-            .get("https://api.vultr.com/v2/applications")
-            .send()
-            .await
-            .map_err(NetworkError::from)?;
-        let response: VultrApplicationsResponse =
-            response.json().await.map_err(ResponseError::from)?;
-        Ok(response
-            .applications
-            .into_iter()
-            .find_map(|application| (application.short_name == short_name).then(|| application.id))
-            .ok_or_else(|| {
-                ResponseError::Other(format!("Application \"{}\" not found", short_name))
-            })?)
-    }
-
-    async fn get_instance(&self, id: &str) -> Result<VultrInstanceResponse> {
-        let response = self
-            .client
-            .get(format!("https://api.vultr.com/v2/instances/{}", id))
-            .bearer_auth(&self.token)
-            .send()
-            .await
-            .map_err(NetworkError::from)?;
-        CloudError::from_status_code(response.status())?;
-
-        let response: VultrGetResponse = response.json().await.map_err(ResponseError::from)?;
-        Ok(response.instance)
-    }
-}
-
 #[derive(Serialize)]
 struct VultrCreateParams<'a> {
     region: &'a str,
@@ -189,7 +195,7 @@ struct VultrCreateParams<'a> {
     tag: &'a str,
     label: String,
     app_id: u16,
-    sshkey_id: &'a [&'a str],
+    sshkey_id: Vec<String>,
     enable_ipv6: bool,
 }
 
@@ -253,7 +259,7 @@ impl From<VultrCreatedInstanceResponse> for Created {
     fn from(instance: VultrCreatedInstanceResponse) -> Self {
         Created {
             id: instance.id,
-            password: instance.default_password,
+            auth: CreatedAuth::Password(instance.default_password),
         }
     }
 }

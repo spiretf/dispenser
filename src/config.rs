@@ -1,3 +1,4 @@
+use crate::cloud::digitalocean::DigitalOcean;
 use crate::cloud::vultr::Vultr;
 use crate::cloud::Cloud;
 use camino::Utf8PathBuf;
@@ -15,6 +16,8 @@ pub enum ConfigError {
     Toml(#[from] TomlError),
     #[error("No cloud provider configured")]
     NoProvider,
+    #[error("Multiple cloud providers configured")]
+    MultipleProviders,
 }
 
 /// Intentionally opaque error
@@ -31,6 +34,7 @@ impl From<toml::de::Error> for TomlError {
 #[derive(Deserialize, Debug)]
 pub struct Config {
     pub vultr: Option<VultrConfig>,
+    pub digital_ocean: Option<DigitalOceanConfig>,
     pub server: ServerConfig,
     pub dyndns: Option<DynDnsConfig>,
     pub schedule: ScheduleConfig,
@@ -43,11 +47,19 @@ impl Config {
     }
 
     pub fn cloud(&self) -> Result<Arc<dyn Cloud>, ConfigError> {
-        if let Some(vultr) = &self.vultr {
+        if self.vultr.is_some() && self.digital_ocean.is_some() {
+            Err(ConfigError::NoProvider)
+        } else if let Some(vultr) = &self.vultr {
             Ok(Arc::new(Vultr::new(
                 vultr.api_key.clone(),
                 vultr.region.clone(),
                 vultr.plan.clone(),
+            )))
+        } else if let Some(digital_ocean) = &self.digital_ocean {
+            Ok(Arc::new(DigitalOcean::new(
+                digital_ocean.api_key.clone(),
+                digital_ocean.region.clone(),
+                digital_ocean.plan.clone(),
             )))
         } else {
             Err(ConfigError::NoProvider)
@@ -71,7 +83,8 @@ pub struct ServerConfig {
     pub name: String,
     #[serde(default = "server_default_tv_name")]
     pub tv_name: String,
-    pub ssh_key: Option<String>,
+    #[serde(default)]
+    pub ssh_keys: Vec<String>,
     #[serde(default)]
     pub manage_existing: bool,
 }
@@ -108,6 +121,20 @@ pub struct VultrConfig {
 
 fn vultr_default_plan() -> String {
     String::from("vc2-1c-2gb")
+}
+
+#[derive(Deserialize, Debug)]
+pub struct DigitalOceanConfig {
+    pub api_key: String,
+    /// See https://api.vultr.com/v2/regions for a list of plans
+    pub region: String,
+    /// See https://api.vultr.com/v2/plans for a list of plans
+    #[serde(default = "digital_ocean_default_plan")]
+    pub plan: String,
+}
+
+fn digital_ocean_default_plan() -> String {
+    String::from("s-2vcpu-2gb")
 }
 
 #[derive(Deserialize, Debug)]

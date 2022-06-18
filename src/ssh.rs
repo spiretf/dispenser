@@ -1,3 +1,4 @@
+use crate::CreatedAuth;
 use futures_util::future::{self};
 use std::convert::identity;
 use std::fmt::{Debug, Formatter};
@@ -71,12 +72,12 @@ impl Debug for SshSession {
 }
 
 impl SshSession {
-    #[instrument(skip(password))]
-    pub async fn open(ip: IpAddr, password: &str) -> Result<Self, SshError> {
+    #[instrument(skip(auth))]
+    pub async fn open(ip: IpAddr, auth: &CreatedAuth) -> Result<Self, SshError> {
         timeout(Duration::from_secs(5 * 60), async move {
             loop {
                 sleep(Duration::from_secs(1)).await;
-                match SshSession::open_impl(ip, password).await {
+                match SshSession::open_impl(ip, auth).await {
                     Ok(ssh) => return Ok(ssh),
                     Err(SshError::ConnectionTimeout) => {}
                     Err(e) => return Err(e),
@@ -88,13 +89,19 @@ impl SshSession {
         .and_then(identity)
     }
 
-    async fn open_impl(ip: IpAddr, password: &str) -> Result<Self, SshError> {
+    async fn open_impl(ip: IpAddr, auth: &CreatedAuth) -> Result<Self, SshError> {
         let config = client::Config::default();
         let config = Arc::new(config);
         let sh = Client {};
 
         let mut handle = client::connect(config, (ip, 22), sh).await?;
-        if handle.authenticate_password("root", password).await? {
+        let result = match auth {
+            CreatedAuth::Password(password) => {
+                handle.authenticate_password("root", password).await?
+            }
+            CreatedAuth::Ssh(key) => handle.authenticate_publickey("root", key.clone()).await?,
+        };
+        if result {
             Ok(SshSession { ip, handle })
         } else {
             Err(SshError::Unauthorized)

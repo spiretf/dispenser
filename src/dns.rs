@@ -17,6 +17,8 @@ pub enum DynDnsError {
     NotYourDomain,
     #[error("Invalid hostname")]
     InvalidHostname,
+    #[error("Rate limited")]
+    Abuse,
 }
 
 impl DynDnsError {
@@ -69,6 +71,7 @@ impl DynDnsClient {
             "!yours" => Err(DynDnsError::NotYourDomain),
             "nochg" | "good" => Ok(()),
             "notfqdn" | "nohost" | "numhost" => Err(DynDnsError::InvalidHostname),
+            "abuse" => Err(DynDnsError::Abuse),
             _ => Err(DynDnsError::InvalidResponse(text)),
         }
     }

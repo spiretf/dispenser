@@ -1,10 +1,14 @@
+use std::fmt::{Display, Formatter};
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use reqwest::StatusCode;
 use thiserror::Error;
+use thrussh_keys::key::KeyPair;
 
+pub mod digitalocean;
 pub mod vultr;
 
 #[derive(Debug, Error)]
@@ -63,13 +67,11 @@ pub trait Cloud: Send + Sync + 'static {
     /// List all running servers on this cloud
     async fn list(&self) -> Result<Vec<Server>>;
     /// Create a new server with the given parameter
-    async fn spawn(&self, ssh_key_id: Option<&str>) -> Result<Created>;
+    async fn spawn(&self, ssh_keys: &[String]) -> Result<Created>;
     /// Destroy a given server
     async fn kill(&self, id: &str) -> Result<()>;
     /// Wait until the server has an ip
     async fn wait_for_ip(&self, id: &str) -> Result<Server>;
-    /// Get the id for the given ssh key
-    async fn get_ssh_key_id(&self, key: &str) -> Result<String>;
 }
 
 #[derive(Debug)]
@@ -83,5 +85,20 @@ pub struct Server {
 #[derive(Debug)]
 pub struct Created {
     pub id: String,
-    pub password: String,
+    pub auth: CreatedAuth,
+}
+
+#[derive(Debug)]
+pub enum CreatedAuth {
+    Password(String),
+    Ssh(Arc<KeyPair>),
+}
+
+impl Display for CreatedAuth {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CreatedAuth::Password(s) => s.fmt(f),
+            CreatedAuth::Ssh(_) => write!(f, "public key only"),
+        }
+    }
 }

@@ -1,4 +1,6 @@
-use crate::cloud::{Cloud, CloudError, Server};
+extern crate core;
+
+use crate::cloud::{Cloud, CloudError, CreatedAuth, Server};
 use crate::config::{Config, ConfigError, ServerConfig};
 use crate::dns::{DynDnsClient, DynDnsError};
 use crate::rcon::Rcon;
@@ -296,18 +298,12 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
         return Err(Error::AlreadyRunning(first));
     }
 
-    let ssh_key = if let Some(key) = config.server.ssh_key.as_ref() {
-        Some(cloud.get_ssh_key_id(key).await?)
-    } else {
-        None
-    };
-
-    let created = cloud.spawn(ssh_key.as_deref()).await?;
+    let created = cloud.spawn(&config.server.ssh_keys).await?;
     let server = cloud.wait_for_ip(&created.id).await?;
 
     println!("Server is booting");
     println!("  IP: {}", server.ip);
-    println!("  Root Password: {}", created.password);
+    println!("  Root Password: {}", created.auth);
 
     let connect_host = if let Some(dns_config) = config.dyndns.as_ref() {
         let dns = DynDnsClient::new(
@@ -325,7 +321,7 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
         format!("{}", server.ip)
     };
 
-    let mut ssh = connect_ssh(server.ip, &created.password).await?;
+    let mut ssh = connect_ssh(server.ip, &created.auth).await?;
     setup(&mut ssh, &config.server).await?;
     ssh.close().await?;
 
@@ -338,14 +334,14 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     Ok(server)
 }
 
-async fn connect_ssh(ip: IpAddr, password: &str) -> Result<SshSession, Error> {
+async fn connect_ssh(ip: IpAddr, auth: &CreatedAuth) -> Result<SshSession, Error> {
     let mut tries = 0;
 
     loop {
         tries += 1;
         sleep(Duration::from_secs(2)).await;
 
-        match SshSession::open(ip, password).await {
+        match SshSession::open(ip, &auth).await {
             Ok(ssh) => {
                 return Ok(ssh);
             }
@@ -357,7 +353,7 @@ async fn connect_ssh(ip: IpAddr, password: &str) -> Result<SshSession, Error> {
                 return Err(e.into());
             }
             Err(_) => {
-                error!(tries = tries, "Failed to connect to ssh, giving up");
+                error!(tries = tries, "Failed to connect to ssh");
             }
         }
     }
