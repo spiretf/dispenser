@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use petname::petname;
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use std::net::IpAddr;
 use std::time::Duration;
 use tokio::time::sleep;
@@ -215,11 +215,21 @@ struct VultrInstanceResponse {
     os: String,
     ram: u64,
     main_ip: IpAddr,
+    #[serde(deserialize_with = "ok_or_default")]
     v6_main_ip: Option<IpAddr>,
     region: String,
     vcpu_count: u16,
     date_created: DateTime<Utc>,
     tag: String,
+}
+
+fn ok_or_default<'a, T, D>(deserializer: D) -> Result<T, D::Error>
+where
+    T: Deserialize<'a> + Default,
+    D: Deserializer<'a>,
+{
+    let v: T = Deserialize::deserialize(deserializer).unwrap_or_default();
+    Ok(v)
 }
 
 #[derive(Debug, Deserialize)]

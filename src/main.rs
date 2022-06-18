@@ -4,9 +4,11 @@ use crate::dns::{DynDnsClient, DynDnsError};
 use crate::rcon::Rcon;
 use crate::ssh::SshError;
 use chrono::Utc;
+use clap::{Parser, Subcommand};
 use cron::Schedule;
+use main_error::MainResult;
 use ssh::SshSession;
-use std::env::args;
+use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -21,6 +23,33 @@ mod config;
 mod dns;
 mod rcon;
 mod ssh;
+
+/// Manage ephemeral tf2 servers
+#[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    #[clap(subcommand)]
+    command: Option<Commands>,
+    config: String,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Start a new server if none is running
+    Start,
+    /// Start the server if one is running
+    Stop,
+    /// List running servers
+    List,
+    /// Run the management daemon
+    Daemon,
+}
+
+impl Default for Commands {
+    fn default() -> Self {
+        Commands::Daemon
+    }
+}
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -51,14 +80,23 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
     debug!(image = display(&config.image), "pulling image");
     loop {
         tries += 1;
-        sleep(Duration::from_secs(1)).await;
+        sleep(Duration::from_secs(2)).await;
         let result = ssh.exec(format!("docker pull {}", config.image)).await?;
         if result.success() {
             break;
         } else if tries > 5 {
+            error!(
+                tries = tries,
+                output = display(result.output()),
+                "Failed to pull docker image to many times, giving up"
+            );
             return Err(Error::SetupError(result.output()));
         } else {
-            error!(tries = tries, "Failed to pull docker image, retrying");
+            error!(
+                tries = tries,
+                output = display(result.output()),
+                "Failed to pull docker image, retrying"
+            );
         }
     }
 
@@ -101,27 +139,64 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> MainResult {
     tracing_subscriber::fmt::init();
 
-    let mut args = args();
-    let bin = args.next().unwrap();
+    let cli = Args::parse();
 
-    let config = match args.next() {
-        Some(file) => Config::from_file(file)?,
-        None => {
-            eprintln!("Usage {} <config.toml>", bin);
-            return Ok(());
-        }
-    };
+    let config = Config::from_file(&cli.config)?;
     let cloud = config.cloud()?;
 
-    let start_schedule = Schedule::from_str(&config.schedule.start)?;
-    let stop_schedule = Schedule::from_str(&config.schedule.stop)?;
+    match cli.command.unwrap_or_default() {
+        Commands::Daemon => {
+            let start_schedule = Schedule::from_str(&config.schedule.start)?;
+            let stop_schedule = Schedule::from_str(&config.schedule.stop)?;
 
-    select! {
-        _ = run_loop(cloud, config, start_schedule, stop_schedule) => {},
-        _ = ctrl_c() => {},
+            select! {
+                _ = run_loop(cloud, config, start_schedule, stop_schedule) => {},
+                _ = ctrl_c() => {},
+            }
+        }
+        Commands::List => {
+            let servers = cloud.list().await?;
+            if servers.is_empty() {
+                println!("No running server");
+            } else {
+                for server in servers {
+                    let player_count =
+                        match Rcon::new((server.ip, 27015), &config.server.rcon).await {
+                            Ok(mut rcon) => rcon.player_count().await,
+                            Err(e) => Err(e),
+                        };
+
+                    if let Ok(player_count) = player_count {
+                        println!("{}: {} with {} players", server.id, server.ip, player_count);
+                    } else {
+                        println!("{}: {}", server.id, server.ip);
+                    }
+                }
+            }
+        }
+        Commands::Start => {
+            match start(cloud.as_ref(), &config).await {
+                Ok(_) => {}
+                Err(Error::AlreadyRunning(_)) => {
+                    println!("Server already running");
+                }
+                Err(e) => eprintln!("{:#}", e),
+            };
+        }
+        Commands::Stop => match cloud.list().await?.first() {
+            Some(server) => match cloud.kill(&server.id).await {
+                Ok(_) => {
+                    println!("Server stopped");
+                }
+                Err(e) => eprintln!("{:#}", e),
+            },
+            None => {
+                eprintln!("No server running");
+            }
+        },
     }
 
     Ok(())
@@ -250,7 +325,7 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
         format!("{}", server.ip)
     };
 
-    let mut ssh = SshSession::open(server.ip, &created.password).await?;
+    let mut ssh = connect_ssh(server.ip, &created.password).await?;
     setup(&mut ssh, &config.server).await?;
     ssh.close().await?;
 
@@ -261,4 +336,29 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
         connect_host, config.server.password
     );
     Ok(server)
+}
+
+async fn connect_ssh(ip: IpAddr, password: &str) -> Result<SshSession, Error> {
+    let mut tries = 0;
+
+    loop {
+        tries += 1;
+        sleep(Duration::from_secs(2)).await;
+
+        match SshSession::open(ip, password).await {
+            Ok(ssh) => {
+                return Ok(ssh);
+            }
+            Err(e) if tries > 5 => {
+                error!(
+                    tries = tries,
+                    "Failed to connect to ssh to many times, giving up"
+                );
+                return Err(e.into());
+            }
+            Err(_) => {
+                error!(tries = tries, "Failed to connect to ssh, giving up");
+            }
+        }
+    }
 }
