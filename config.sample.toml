@@ -8,7 +8,7 @@ config_mode = "6v6" # 6v6 or 9v9, defaults to "6v6"
 name = "Spire" # server name. optional, defaults to "Spire"
 tv_name = "SpireTV" # stv name. optional, defaults to "SpireTV"
 image = "spiretf/docker-spire-server" # docker image for the tf2 server. optional, defaults to "spiretf/docker-spire-server"
-ssh_keys = ["ssh-rsa AAAA..."] # ssh key to add to the server. optional
+ssh_keys = ["ssh-rsa AAAA..."] # ssh keys to add to the server. optional
 manage_existing = false # whether to detect and manage server that are already running, optional, disabled by default
 
 # Specify either the vultr settings or the digitalocean settings to pick the cloud provider

@@ -20,7 +20,33 @@ You'll need to manually destroy the existing server in that case.
 
 You can overwrite this behavior by setting `manage_existing = true` in your `config.toml`,  
 
+## Manual usage
+
+Instead of managing the servers on a schedule with a background server you can also manually manage the server.
+
+### List running servers
+
+```shell
+dispenser config.toml list
+```
+
+### Start a new server
+
+```shell
+dispenser config.toml start
+```
+
+Note that this will not start an additional server is a server is already running
+
+### Stop a running server
+
+```shell
+dispenser config.toml stop
+```
+
 ## TODO
 
 - [x] don't blindly kill server if there are players connected
 - [ ] kill the server earlier if everyone disconnected
+- [x] digital ocean backend
+- [ ] more backends?
