@@ -74,7 +74,11 @@ pub enum Error {
 }
 
 #[instrument(skip(config))]
-async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error> {
+async fn setup(
+    ssh: &mut SshSession,
+    config: &ServerConfig,
+    hostname: Option<&str>,
+) -> Result<(), Error> {
     sleep(Duration::from_secs(10)).await;
 
     let mut tries = 0;
@@ -137,6 +141,27 @@ async fn setup(ssh: &mut SshSession, config: &ServerConfig) -> Result<(), Error>
         .await?;
     ssh.exec("chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile")
         .await?;
+
+    debug!("setting up prometheus");
+    ssh.exec("wget https://github.com/icewind1991/palantir/raw/main/palantir.service -O /etc/systemd/system/palantir.service").await?;
+    ssh.exec("wget https://github.com/icewind1991/palantir/releases/download/v1.1.0/palantir-x86_64-unknown-linux-musl -O /usr/local/bin/palantir").await?;
+    ssh.exec("chmod +x /usr/local/bin/palantir").await?;
+    ssh.exec(
+        r#"sed -i -e "s|User=palantir|DynamicUser=true|" /etc/systemd/system/palantir.service"#,
+    )
+    .await?;
+    ssh.exec("iptables -I INPUT -p tcp --dport 5665 -j ACCEPT")
+        .await?;
+    if let Some(hostname) = hostname {
+        ssh.exec(&format!(
+            "hostname {} && systemctl start palantir",
+            hostname
+        ))
+        .await?;
+    } else {
+        ssh.exec("systemctl start palantir").await?;
+    }
+
     Ok(())
 }
 
@@ -322,7 +347,12 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     };
 
     let mut ssh = connect_ssh(server.ip, &created.auth).await?;
-    setup(&mut ssh, &config.server).await?;
+    setup(
+        &mut ssh,
+        &config.server,
+        config.dyndns.as_ref().map(|dns| dns.hostname.as_str()),
+    )
+    .await?;
     ssh.close().await?;
 
     println!("Server has been setup and is starting");
