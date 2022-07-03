@@ -2,7 +2,8 @@ use crate::cloud::digitalocean::DigitalOcean;
 use crate::cloud::vultr::Vultr;
 use crate::cloud::Cloud;
 use camino::Utf8PathBuf;
-use serde::Deserialize;
+use serde::de::Error;
+use serde::{Deserialize, Deserializer};
 use std::fs::read_to_string;
 use std::path::Path;
 use std::sync::Arc;
@@ -67,13 +68,43 @@ impl Config {
     }
 }
 
+fn deserialize_opt_secret<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = <Option<String>>::deserialize(deserializer)?;
+    raw.map(load_secret)
+        .transpose()
+        .map_err(|e| D::Error::custom(e))
+}
+
+fn deserialize_secret<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let raw = String::deserialize(deserializer)?;
+    load_secret(raw).map_err(|e| D::Error::custom(e))
+}
+
+fn load_secret(raw: String) -> Result<String, std::io::Error> {
+    let path: &Path = raw.as_ref();
+    if raw.starts_with("/") && path.exists() {
+        let raw = read_to_string(raw)?;
+        Ok(raw.trim().into())
+    } else {
+        Ok(raw)
+    }
+}
+
 #[derive(Deserialize, Debug)]
 pub struct ServerConfig {
     pub rcon: String,
     pub password: String,
     #[serde(default = "server_default_image")]
     pub image: String,
+    #[serde(deserialize_with = "deserialize_opt_secret")]
     pub demostf_key: Option<String>,
+    #[serde(deserialize_with = "deserialize_opt_secret")]
     pub logstf_key: Option<String>,
     #[serde(default = "server_default_league")]
     pub config_league: String,
@@ -111,6 +142,7 @@ fn server_default_mode() -> String {
 
 #[derive(Deserialize, Debug)]
 pub struct VultrConfig {
+    #[serde(deserialize_with = "deserialize_secret")]
     pub api_key: String,
     /// See https://api.vultr.com/v2/regions for a list of plans
     pub region: String,
@@ -125,6 +157,7 @@ fn vultr_default_plan() -> String {
 
 #[derive(Deserialize, Debug)]
 pub struct DigitalOceanConfig {
+    #[serde(deserialize_with = "deserialize_secret")]
     pub api_key: String,
     /// See https://api.vultr.com/v2/regions for a list of plans
     pub region: String,
@@ -142,6 +175,7 @@ pub struct DynDnsConfig {
     pub update_url: String,
     pub hostname: String,
     pub username: String,
+    #[serde(deserialize_with = "deserialize_secret")]
     pub password: String,
 }
 

@@ -44,6 +44,14 @@ Note that this will not start an additional server is a server is already runnin
 dispenser config.toml stop
 ```
 
+## Dealing with secrets
+
+If you want to store your config file in version control but don't want to store your secrets there,
+you can choose to load the secrets from other files by specifying the secret as an absolute path.
+
+This can be done for the following config options:
+  `server.demostf_key`, `server.logstf_key`, `vultr.api_key`, `digitalocean.api_key` and `dyndns.password`.
+
 ## TODO
 
 - [x] don't blindly kill server if there are players connected
