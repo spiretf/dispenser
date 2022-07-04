@@ -98,7 +98,9 @@ fn load_secret(raw: String) -> Result<String, std::io::Error> {
 
 #[derive(Deserialize, Debug)]
 pub struct ServerConfig {
+    #[serde(deserialize_with = "deserialize_secret")]
     pub rcon: String,
+    #[serde(deserialize_with = "deserialize_secret")]
     pub password: String,
     #[serde(default = "server_default_image")]
     pub image: String,
