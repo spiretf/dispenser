@@ -29,7 +29,7 @@
 
       # `nix develop`
       devShell = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [rustc cargo];
+        nativeBuildInputs = with pkgs; [rustc cargo bacon];
       };
     })
     // {
@@ -197,12 +197,6 @@
           };
 
           config = mkIf cfg.enable {
-            users.groups.dispenser = {};
-            users.users.dispenser = {
-              isSystemUser = true;
-              group = "dispenser";
-            };
-
             systemd.services.dispenser = let
               pkg = self.defaultPackage.${pkgs.system};
             in {
@@ -213,7 +207,7 @@
                 Restart = "on-failure";
                 DynamicUser = true;
                 PrivateTmp = true;
-                ProtectSystem = "full";
+                ProtectSystem = "strict";
                 ProtectHome = true;
                 NoNewPrivileges = true;
                 PrivateDevices = true;
@@ -231,7 +225,6 @@
                 RestrictAddressFamilies = "AF_INET AF_INET6";
                 RestrictRealtime = true;
                 ProtectProc = "noaccess";
-                PrivateUsers = true;
                 SystemCallFilter = ["@system-service" "~@resources" "~@privileged"];
                 IPAddressDeny = "localhost link-local multicast";
               };
