@@ -172,7 +172,7 @@ fn digital_ocean_default_plan() -> String {
     String::from("s-2vcpu-2gb")
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct DynDnsConfig {
     pub update_url: String,
     pub hostname: String,

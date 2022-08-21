@@ -1,7 +1,7 @@
 extern crate core;
 
 use crate::cloud::{Cloud, CloudError, CreatedAuth, Server};
-use crate::config::{Config, ConfigError, ServerConfig};
+use crate::config::{Config, ConfigError, DynDnsConfig, ServerConfig};
 use crate::dns::{DynDnsClient, DynDnsError};
 use crate::rcon::Rcon;
 use crate::ssh::SshError;
@@ -15,9 +15,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
-use tokio::select;
 use tokio::signal::ctrl_c;
 use tokio::time::sleep;
+use tokio::{select, spawn};
 use tracing::{debug, error, info, instrument, warn};
 
 mod cloud;
@@ -106,7 +106,7 @@ async fn setup(
         }
     }
 
-    debug!("starting container");
+    info!("starting container");
     let result = ssh
         .exec(format!(
             "docker run --name spire -d \
@@ -136,13 +136,13 @@ async fn setup(
         return Err(Error::SetupError(result.output()));
     }
 
-    debug!("setting up swap");
+    info!("setting up swap");
     ssh.exec("dd if=/dev/zero of=/swapfile bs=1M count=1024")
         .await?;
     ssh.exec("chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile")
         .await?;
 
-    debug!("setting up prometheus");
+    info!("setting up prometheus");
     ssh.exec("wget https://github.com/icewind1991/palantir/raw/main/palantir.service -O /etc/systemd/system/palantir.service").await?;
     ssh.exec("wget https://github.com/icewind1991/palantir/releases/download/v1.1.0/palantir-x86_64-unknown-linux-musl -O /usr/local/bin/palantir").await?;
     ssh.exec("chmod +x /usr/local/bin/palantir").await?;
@@ -262,6 +262,9 @@ async fn run_loop(
                         server = debug(&server),
                         "Taking ownership of existing server"
                     );
+                    if let Some(dns_config) = config.dyndns.as_ref() {
+                        spawn(set_dyndns(dns_config.clone(), server.ip));
+                    }
                     active_server = Some(server);
                 }
                 Err(e) => eprintln!("{:#}", e),
@@ -331,16 +334,7 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
     println!("  Root Password: {}", created.auth);
 
     let connect_host = if let Some(dns_config) = config.dyndns.as_ref() {
-        let dns = DynDnsClient::new(
-            dns_config.update_url.to_string(),
-            dns_config.username.to_string(),
-            dns_config.password.to_string(),
-        );
-        println!(
-            "Updating DynDNS entry for {} to {}",
-            dns_config.hostname, server.ip
-        );
-        dns.update(&dns_config.hostname, server.ip).await?;
+        spawn(set_dyndns(dns_config.clone(), server.ip));
         dns_config.hostname.to_string()
     } else {
         format!("{}", server.ip)
@@ -362,6 +356,21 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
         connect_host, config.server.password
     );
     Ok(server)
+}
+
+async fn set_dyndns(dns_config: DynDnsConfig, ip: IpAddr) {
+    let dns = DynDnsClient::new(
+        dns_config.update_url.to_string(),
+        dns_config.username.to_string(),
+        dns_config.password.to_string(),
+    );
+    println!(
+        "Updating DynDNS entry for {} to {}",
+        dns_config.hostname, ip
+    );
+    if let Err(e) = dns.update(&dns_config.hostname, ip).await {
+        eprintln!("Error while updating DynDNS: {}", e);
+    }
 }
 
 async fn connect_ssh(ip: IpAddr, auth: &CreatedAuth) -> Result<SshSession, Error> {
