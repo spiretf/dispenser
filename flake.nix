@@ -2,6 +2,7 @@
   inputs = {
     utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
+    nixpkgs.url = "nixpkgs/release-22.05";
   };
 
   outputs = {
@@ -11,21 +12,17 @@
     naersk,
   }:
     utils.lib.eachDefaultSystem (system: let
-      pkgs = nixpkgs.legacyPackages."${system}";
-      naersk-lib = naersk.lib."${system}";
+      pkgs = (import nixpkgs) {
+        inherit system;
+      };
+      naersk' = pkgs.callPackage naersk {};
     in rec {
       # `nix build`
-      packages.dispenser = naersk-lib.buildPackage {
+      packages.dispenser = naersk'.buildPackage {
         pname = "dispenser";
         root = ./.;
       };
       defaultPackage = packages.dispenser;
-
-      # `nix run`
-      apps.dispenser = utils.lib.mkApp {
-        drv = packages.dispenser;
-      };
-      defaultApp = apps.dispenser;
 
       # `nix develop`
       devShell = pkgs.mkShell {
