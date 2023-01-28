@@ -5,11 +5,11 @@
         "nixpkgs": "nixpkgs"
       },
       "locked": {
-        "lastModified": 1659610603,
-        "narHash": "sha256-LYgASYSPYo7O71WfeUOaEUzYfzuXm8c8eavJcel+pfI=",
+        "lastModified": 1671096816,
+        "narHash": "sha256-ezQCsNgmpUHdZANDCILm3RvtO1xH8uujk/+EqNvzIOg=",
         "owner": "nix-community",
         "repo": "naersk",
-        "rev": "c6a45e4277fa58abd524681466d3450f896dc094",
+        "rev": "d998160d6a076cfe8f9741e56aeec7e267e3e114",
         "type": "github"
       },
       "original": {
@@ -20,9 +20,10 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 0,
-        "narHash": "sha256-ogcrJszrCg23/mIcLEOUCMKgdWlqMJ4QqezvX0V2ZQk=",
-        "path": "/nix/store/f6y01zll9swq7rvf82ya4r3hjs9j93py-source",
+        "lastModified": 1674407282,
+        "narHash": "sha256-2qwc8mrPINSFdWffPK+ji6nQ9aGnnZyHSItVcYDZDlk=",
+        "path": "/nix/store/47v7isgz6w8zgb1224d46lwvwkdd69bm-source",
+        "rev": "ab1254087f4cdf4af74b552d7fc95175d9bdbb49",
         "type": "path"
       },
       "original": {
@@ -32,16 +33,16 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1661094678,
-        "narHash": "sha256-RtaVb6SqfrgCi20gdju1ogS3u1ocyLnhsgolazrCwL0=",
+        "lastModified": 1674902473,
+        "narHash": "sha256-MdKJeeDTjCtmoVPWLEDg10jgknt6rqTO3c1WeNQtho4=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "23534df34c1c499a6c82ce690df06d8c6e4e759d",
+        "rev": "548896f4d9f7db2f7205d82727d6c03c86d2f896",
         "type": "github"
       },
       "original": {
         "id": "nixpkgs",
-        "ref": "release-22.05",
+        "ref": "release-22.11",
         "type": "indirect"
       }
     },
@@ -54,11 +55,11 @@
     },
     "utils": {
       "locked": {
-        "lastModified": 1659877975,
-        "narHash": "sha256-zllb8aq3YO3h8B/U0/J1WBgAL8EX5yWf5pMj3G0NAmc=",
+        "lastModified": 1667395993,
+        "narHash": "sha256-nuEHfE/LcWyuSWnS8t12N1wc105Qtau+/OdUAjtQ0rA=",
         "owner": "numtide",
         "repo": "flake-utils",
-        "rev": "c0e246b9b83f637f4681389ecabcb2681b4f3af0",
+        "rev": "5aed5285a952e0b949eb3ba02c12fa4fcfef535f",
         "type": "github"
       },
       "original": {
