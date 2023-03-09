@@ -1,5 +1,5 @@
 use crate::cloud::{
-    Cloud, CloudError, Created, CreatedAuth, NetworkError, ResponseError, Result, Server,
+    key_cmp, Cloud, CloudError, Created, CreatedAuth, NetworkError, ResponseError, Result, Server,
 };
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -164,7 +164,7 @@ impl Vultr {
         if let Some(key) = response
             .ssh_keys
             .into_iter()
-            .find(|key| key.ssh_key == ssh_key)
+            .find(|key| key_cmp(&key.ssh_key, ssh_key))
         {
             Ok(key.id)
         } else {

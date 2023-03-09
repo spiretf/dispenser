@@ -102,3 +102,11 @@ impl Display for CreatedAuth {
         }
     }
 }
+
+fn key_cmp(a: &str, b: &str) -> bool {
+    let mut a_parts = a.split(' ');
+    let mut b_parts = b.split(' ');
+
+    // compare the first 2 space-seperated parts
+    a_parts.next() == b_parts.next() && a_parts.next() == b_parts.next()
+}

@@ -1,4 +1,6 @@
-use crate::cloud::{Cloud, CloudError, Created, NetworkError, ResponseError, Result, Server};
+use crate::cloud::{
+    key_cmp, Cloud, CloudError, Created, NetworkError, ResponseError, Result, Server,
+};
 use crate::CreatedAuth;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
@@ -13,6 +15,7 @@ use std::time::Duration;
 use thrussh_keys::key::KeyPair;
 use thrussh_keys::PublicKeyBase64;
 use tokio::time::sleep;
+use tracing::{debug, info, instrument};
 
 pub struct DigitalOcean {
     region: String,
@@ -55,6 +58,7 @@ impl Cloud for DigitalOcean {
             .collect())
     }
 
+    #[instrument(skip(self, ssh_keys))]
     async fn spawn(&self, ssh_keys: &[String]) -> Result<Created> {
         let startup_key = Arc::new(KeyPair::generate_ed25519().unwrap());
         let startup_key_id = self
@@ -151,6 +155,7 @@ impl DigitalOcean {
         Ok(response.droplet)
     }
 
+    #[instrument(skip(self))]
     async fn get_ssh_key_id(&self, ssh_key: &str) -> Result<u32> {
         let response = self
             .client
@@ -172,14 +177,17 @@ impl DigitalOcean {
         if let Some(key) = response
             .ssh_keys
             .into_iter()
-            .find(|key| key.public_key == ssh_key)
+            .find(|key| key_cmp(&key.public_key, ssh_key))
         {
+            debug!(id = key.id, "key found");
             Ok(key.id)
         } else {
+            info!("key doesn't exist, creating");
             self.create_key("Dispenser Key", ssh_key).await
         }
     }
 
+    #[instrument(skip(self))]
     async fn create_key(&self, name: &str, ssh_key: &str) -> Result<u32> {
         let response = self
             .client
@@ -200,6 +208,7 @@ impl DigitalOcean {
         Ok(response.ssh_key.id)
     }
 
+    #[instrument(skip(self))]
     async fn remove_key(&self, key_id: u32) -> Result<()> {
         let response = self
             .client
