@@ -40,7 +40,8 @@
           cfg = config.services.dispenser;
           format = pkgs.formats.toml {};
           configFile = format.generate "dispenser.toml" (filterAttrs (n: v: v != null) {
-            inherit (cfg) server vultr digitalocean dyndns schedule;
+            inherit (cfg) server vultr dyndns schedule;
+            digital_ocean = cfg.digitalocean;
           });
         in {
           options.services.dispenser = {
