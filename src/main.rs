@@ -378,7 +378,7 @@ async fn connect_ssh(ip: IpAddr, auth: &CreatedAuth) -> Result<SshSession, Error
 
     loop {
         tries += 1;
-        sleep(Duration::from_secs(2)).await;
+        sleep(Duration::from_secs(5)).await;
 
         match SshSession::open(ip, &auth).await {
             Ok(ssh) => {
@@ -387,12 +387,13 @@ async fn connect_ssh(ip: IpAddr, auth: &CreatedAuth) -> Result<SshSession, Error
             Err(e) if tries > 5 => {
                 error!(
                     tries = tries,
+                    error = %e,
                     "Failed to connect to ssh to many times, giving up"
                 );
                 return Err(e.into());
             }
-            Err(_) => {
-                error!(tries = tries, "Failed to connect to ssh");
+            Err(e) => {
+                warn!(tries = tries, error = %e, "Failed to connect to ssh");
             }
         }
     }
