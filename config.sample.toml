@@ -18,7 +18,7 @@ api_key = "xxx"
 region = "ams" # see https://api.vultr.com/v2/regions for a list of regions
 plan = "vc2-1c-2gb" # optional, defaults to vc2-1c-2gb (2GB, $10/month) see https://api.vultr.com/v2/plans for a list of plans
 
-[digitalocean]
+[digital_ocean]
 api_key = "xxx"
 region = "ams3" # see https://api.digitalocean.com/v2/apps/regions for a list of regions
 plan = "s-1vcpu-2gb" # optional, defaults to s-1vcpu-2gb (2GB, $10/month) see https://api.digitalocean.com/v2/sizes for a list of plans
