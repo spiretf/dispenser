@@ -69,7 +69,7 @@ impl Cloud for Vultr {
                 plan: self.plan.as_str(),
                 tag: "spire",
                 label: petname(2, "-"),
-                app_id: self.get_app_id("docker").await?,
+                image_id: self.get_app_image_id("docker").await?,
                 sshkey_id: key_ids,
                 enable_ipv6: true,
             })
@@ -112,7 +112,7 @@ impl Cloud for Vultr {
 }
 
 impl Vultr {
-    async fn get_app_id(&self, short_name: &str) -> Result<u16> {
+    async fn get_app_image_id(&self, short_name: &str) -> Result<String> {
         let response = self
             .client
             .get("https://api.vultr.com/v2/applications")
@@ -124,7 +124,9 @@ impl Vultr {
         Ok(response
             .applications
             .into_iter()
-            .find_map(|application| (application.short_name == short_name).then(|| application.id))
+            .find_map(|application| {
+                (application.short_name == short_name).then(|| application.image_id)
+            })
             .ok_or_else(|| {
                 ResponseError::Other(format!("Application \"{}\" not found", short_name))
             })?)
@@ -194,7 +196,7 @@ struct VultrCreateParams<'a> {
     plan: &'a str,
     tag: &'a str,
     label: String,
-    app_id: u16,
+    image_id: String,
     sshkey_id: Vec<String>,
     enable_ipv6: bool,
 }
@@ -271,7 +273,7 @@ struct VultrApplicationsResponse {
 
 #[derive(Debug, Deserialize)]
 struct VultrApplicationResponse {
-    id: u16,
+    image_id: String,
     short_name: String,
 }
 
