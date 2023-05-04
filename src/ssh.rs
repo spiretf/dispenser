@@ -25,6 +25,8 @@ pub enum SshError {
     ConnectionTimeout,
     #[error("Disconnected by server")]
     Disconnected,
+    #[error("Connection refused")]
+    Refused,
 }
 
 #[derive(Debug, Error)]
@@ -37,6 +39,7 @@ impl From<thrussh::Error> for SshError {
             Error::Disconnect | Error::HUP => SshError::Disconnected,
             Error::ConnectionTimeout => SshError::ConnectionTimeout,
             Error::IO(io) if io.raw_os_error() == Some(110) => SshError::ConnectionTimeout,
+            Error::IO(io) if io.raw_os_error() == Some(111) => SshError::Refused,
             e => SshError::Other(SshErrorImpl(e)),
         }
     }
@@ -79,7 +82,7 @@ impl SshSession {
                 sleep(Duration::from_secs(1)).await;
                 match SshSession::open_impl(ip, auth).await {
                     Ok(ssh) => return Ok(ssh),
-                    Err(SshError::ConnectionTimeout) => {}
+                    Err(SshError::ConnectionTimeout | SshError::Refused) => {}
                     Err(e) => return Err(e),
                 }
             }
