@@ -33,19 +33,25 @@
       packages = (nixpkgs.lib.attrsets.genAttrs targets (target: (naerskForTarget target).buildPackage {
         pname = "dispenser";
         root = ./.;
-      })) // {
+      })) // rec {
         dispenser = (naerskForTarget hostTarget).buildPackage {
           pname = "dispenser";
           root = ./.;
         };
+        dockerImage = pkgs.dockerTools.buildImage {
+          name = "spiretf/dispenser";
+          tag = "latest";
+          copyToRoot = [dispenser];
+          config = {
+            Cmd = [ "${dispenser}/bin/dispenser" "/config.toml"];
+          };
+        };
+        default = dispenser;
       };
-      defaultPackage = packages.dispenser;
 
-      # `nix develop`
-      devShell = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [pkgs.rust-bin.stable.latest.default bacon];
+      devShells.default = pkgs.mkShell {
+        nativeBuildInputs = with pkgs; [rust-bin.stable.latest.default bacon skopeo];
       };
-      devShells.default = devShell;
     })
     // {
       nixosModule = {
