@@ -56,4 +56,4 @@ jobs:
       - name: Push image
         if: github.ref == 'refs/heads/main'
         run: |
-          skopeo copy --dest-creds="${{ secrets.DOCKERHUB_USERNAME }}:${{ secrets.DOCKERHUB_TOKEN }}" "docker-archive:$(nix build .#dockerImage --print-out-paths)" "docker://icewind1991/dispenser"
+          skopeo copy --dest-creds="${{ secrets.DOCKERHUB_USERNAME }}:${{ secrets.DOCKERHUB_TOKEN }}" "docker-archive:$(nix build .#dockerImage --print-out-paths)" "docker://spiretf/dispenser"

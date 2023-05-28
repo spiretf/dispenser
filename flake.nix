@@ -17,6 +17,7 @@
     rust-overlay,
   }:
     utils.lib.eachDefaultSystem (system: let
+      lib = nixpkgs.lib;
       overlays = [ (import rust-overlay) ];
       pkgs = (import nixpkgs) {
         inherit system overlays;
@@ -29,14 +30,20 @@
         cargo = toolchain;
         rustc = toolchain;
       };
+      rustSources = [
+          ./Cargo.toml
+          ./Cargo.lock
+          ./src
+      ];
+      src = lib.sources.sourceByRegex (lib.cleanSource ./.) ["Cargo.*" "src" "src/.*"];
     in rec {
-      packages = (nixpkgs.lib.attrsets.genAttrs targets (target: (naerskForTarget target).buildPackage {
+      packages = (lib.attrsets.genAttrs targets (target: (naerskForTarget target).buildPackage {
         pname = "dispenser";
-        root = ./.;
+        root = src;
       })) // rec {
         dispenser = (naerskForTarget hostTarget).buildPackage {
           pname = "dispenser";
-          root = ./.;
+          root = src;
         };
         dockerImage = pkgs.dockerTools.buildImage {
           name = "spiretf/dispenser";
