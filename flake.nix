@@ -2,7 +2,11 @@
   inputs = {
     utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
+    naersk.inputs.nixpkgs.follows = "nixpkgs";
     nixpkgs.url = "nixpkgs/release-22.11";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
+    rust-overlay.inputs.flake-utils.follows = "utils";
   };
 
   outputs = {
@@ -10,24 +14,38 @@
     nixpkgs,
     utils,
     naersk,
+    rust-overlay,
   }:
     utils.lib.eachDefaultSystem (system: let
+      overlays = [ (import rust-overlay) ];
       pkgs = (import nixpkgs) {
-        inherit system;
+        inherit system overlays;
       };
-      naersk' = pkgs.callPackage naersk {};
+      hostTarget = pkgs.hostPlatform.config;
+      targets = ["x86_64-unknown-linux-musl" hostTarget];
+      naerskForTarget = target: let
+        toolchain = pkgs.rust-bin.stable.latest.default.override { targets = [target]; };
+      in pkgs.callPackage naersk {
+        cargo = toolchain;
+        rustc = toolchain;
+      };
     in rec {
-      # `nix build`
-      packages.dispenser = naersk'.buildPackage {
+      packages = (nixpkgs.lib.attrsets.genAttrs targets (target: (naerskForTarget target).buildPackage {
         pname = "dispenser";
         root = ./.;
+      })) // {
+        dispenser = (naerskForTarget hostTarget).buildPackage {
+          pname = "dispenser";
+          root = ./.;
+        };
       };
       defaultPackage = packages.dispenser;
 
       # `nix develop`
       devShell = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [rustc cargo bacon];
+        nativeBuildInputs = with pkgs; [pkgs.rust-bin.stable.latest.default bacon];
       };
+      devShells.default = devShell;
     })
     // {
       nixosModule = {

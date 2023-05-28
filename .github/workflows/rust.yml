@@ -7,38 +7,35 @@ jobs:
     name: Check
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - uses: icewind1991/attic-action@v1
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
+          name: ci
+          instance: https://cache.icewind.me
+          authToken: '${{ secrets.ATTIC_TOKEN }}'
+      - uses: lriesebos/nix-develop-command@6f5f4830884d1957767e920c51d6118c9b0ac828
         with:
-          command: check
+          command: "cargo check"
 
   build:
-    name: Build
-    runs-on: ubuntu-20.04
-
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
     steps:
-      - name: musl-tools
-        run: |
-          sudo apt-get install musl-tools
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - uses: icewind1991/attic-action@v1
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          target: x86_64-unknown-linux-musl
-      - uses: Swatinem/rust-cache@v1
-      - uses: actions-rs/cargo@v1
+          name: ci
+          instance: https://cache.icewind.me
+          authToken: '${{ secrets.ATTIC_TOKEN }}'
+      - run: nix build .#${{ matrix.target }}
+      - uses: actions/upload-artifact@v3
         with:
-          command: build
-          args: --release --target x86_64-unknown-linux-musl
-      - uses: actions/upload-artifact@v2
-        with:
-          name: dispenser
-          path: target/x86_64-unknown-linux-musl/release/dispenser
+          name: palantir-${{ matrix.target }}
+          path: result/bin/*
