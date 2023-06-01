@@ -227,7 +227,7 @@
 
           config = mkIf cfg.enable {
             systemd.services.dispenser = let
-              pkg = self.defaultPackage.${pkgs.system};
+              pkg = self.packages.${pkgs.system}.dispenser;
             in {
               wantedBy = ["multi-user.target"];
               script = "${pkg}/bin/dispenser ${configFile}";
