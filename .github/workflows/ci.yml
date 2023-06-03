@@ -14,13 +14,11 @@ jobs:
           name: ci
           instance: https://cache.icewind.me
           authToken: '${{ secrets.ATTIC_TOKEN }}'
-      - uses: Swatinem/rust-cache@v1
-      - uses: lriesebos/nix-develop-command@6f5f4830884d1957767e920c51d6118c9b0ac828
-        with:
-          command: "cargo check"
+      - run: nix build .#check
 
   build:
     runs-on: ubuntu-latest
+    needs: check
     strategy:
       fail-fast: false
       matrix:

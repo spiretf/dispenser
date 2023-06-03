@@ -3,7 +3,7 @@
     utils.url = "github:numtide/flake-utils";
     naersk.url = "github:nix-community/naersk";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
-    nixpkgs.url = "nixpkgs/release-22.11";
+    nixpkgs.url = "nixpkgs/release-23.05";
     rust-overlay.url = "github:oxalica/rust-overlay";
     rust-overlay.inputs.nixpkgs.follows = "nixpkgs";
     rust-overlay.inputs.flake-utils.follows = "utils";
@@ -43,6 +43,11 @@
       })) // rec {
         dispenser = (naerskForTarget hostTarget).buildPackage {
           pname = "dispenser";
+          root = src;
+        };
+        check = (naerskForTarget hostTarget).buildPackage {
+          pname = "dispenser";
+          cargoBuild = _: ''cargo $cargo_options check $cargo_build_options >> $cargo_build_output_json'';
           root = src;
         };
         dockerImage = pkgs.dockerTools.buildImage {
