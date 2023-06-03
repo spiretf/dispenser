@@ -1,7 +1,7 @@
 {
   inputs = {
     utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
+    naersk.url = "github:icewind1991/naersk?rev=21b870efb320d44ec1c2f661f6e6e8deca9bb239";
     naersk.inputs.nixpkgs.follows = "nixpkgs";
     nixpkgs.url = "nixpkgs/release-23.05";
     rust-overlay.url = "github:oxalica/rust-overlay";
@@ -30,41 +30,18 @@
         cargo = toolchain;
         rustc = toolchain;
       };
-      rustSources = [
-          ./Cargo.toml
-          ./Cargo.lock
-          ./src
-      ];
+      hostNaersk = naerskForTarget hostTarget;
       src = lib.sources.sourceByRegex (lib.cleanSource ./.) ["Cargo.*" "src" "src/.*"];
-    in rec {
-      packages = (lib.attrsets.genAttrs targets (target: (naerskForTarget target).buildPackage {
+      nearskOpt = {
         pname = "dispenser";
         root = src;
-      })) // rec {
-        dispenser = (naerskForTarget hostTarget).buildPackage {
-          pname = "dispenser";
-          root = src;
-        };
-        check = (naerskForTarget hostTarget).buildPackage {
-          pname = "dispenser";
-          cargoBuild = _: ''cargo $cargo_options check $cargo_build_options >> $cargo_build_output_json'';
-          root = src;
-        };
-        clippy = (naerskForTarget hostTarget).buildPackage {
-          pname = "dispenser";
-          cargoBuild = _: ''cargo $cargo_options clippy -j "$NIX_BUILD_CORES" --message-format=$cargo_message_format -- -A all >> $cargo_build_output_json'';
-          overrideMain = cfg: cfg // {
-            buildPhase = ''
-              runHook preBuild
-              export SOURCE_DATE_EPOCH=1
-
-              logRun cargo $cargo_options clippy -j "$NIX_BUILD_CORES" -- -D warnings
-
-              runHook postBuild
-            '';
-          };
-          root = src;
-        };
+      };
+    in rec {
+      packages = (lib.attrsets.genAttrs targets (target: (naerskForTarget target).buildPackage nearskOpt)) // rec {
+        dispenser = hostNaersk.buildPackage nearskOpt;
+        check = hostNaersk.buildPackage (nearskOpt // { checkOnly = true; });
+        test = hostNaersk.buildPackage (nearskOpt // { testOnly = true; });
+        clippy = hostNaersk.buildPackage (nearskOpt // { clippyOnly = true; });
         dockerImage = pkgs.dockerTools.buildImage {
           name = "spiretf/dispenser";
           tag = "latest";
