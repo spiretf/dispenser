@@ -50,6 +50,21 @@
           cargoBuild = _: ''cargo $cargo_options check $cargo_build_options >> $cargo_build_output_json'';
           root = src;
         };
+        clippy = (naerskForTarget hostTarget).buildPackage {
+          pname = "dispenser";
+          cargoBuild = _: ''cargo $cargo_options clippy -j "$NIX_BUILD_CORES" --message-format=$cargo_message_format -- -A all >> $cargo_build_output_json'';
+          overrideMain = cfg: cfg // {
+            buildPhase = ''
+              runHook preBuild
+              export SOURCE_DATE_EPOCH=1
+
+              logRun cargo $cargo_options clippy -j "$NIX_BUILD_CORES" -- -D warnings
+
+              runHook postBuild
+            '';
+          };
+          root = src;
+        };
         dockerImage = pkgs.dockerTools.buildImage {
           name = "spiretf/dispenser";
           tag = "latest";

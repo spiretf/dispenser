@@ -4,7 +4,6 @@ name: CI
 
 jobs:
   check:
-    name: Check
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
@@ -15,6 +14,19 @@ jobs:
           instance: https://cache.icewind.me
           authToken: '${{ secrets.ATTIC_TOKEN }}'
       - run: nix build .#check
+
+  clippy:
+    runs-on: ubuntu-20.04
+    needs: check
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - uses: icewind1991/attic-action@v1
+        with:
+          name: ci
+          instance: https://cache.icewind.me
+          authToken: '${{ secrets.ATTIC_TOKEN }}'
+      - run: nix build .#clippy
 
   build:
     runs-on: ubuntu-latest

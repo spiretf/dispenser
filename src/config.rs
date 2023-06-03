@@ -73,9 +73,7 @@ where
     D: Deserializer<'de>,
 {
     let raw = <Option<String>>::deserialize(deserializer)?;
-    raw.map(load_secret)
-        .transpose()
-        .map_err(|e| D::Error::custom(e))
+    raw.map(load_secret).transpose().map_err(D::Error::custom)
 }
 
 fn deserialize_secret<'de, D>(deserializer: D) -> Result<String, D::Error>
@@ -83,12 +81,12 @@ where
     D: Deserializer<'de>,
 {
     let raw = String::deserialize(deserializer)?;
-    load_secret(raw).map_err(|e| D::Error::custom(e))
+    load_secret(raw).map_err(D::Error::custom)
 }
 
 fn load_secret(raw: String) -> Result<String, std::io::Error> {
     let path: &Path = raw.as_ref();
-    if raw.starts_with("/") && path.exists() {
+    if raw.starts_with('/') && path.exists() {
         let raw = read_to_string(raw)?;
         Ok(raw.trim().into())
     } else {

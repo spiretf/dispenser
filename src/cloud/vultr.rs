@@ -125,7 +125,7 @@ impl Vultr {
             .applications
             .into_iter()
             .find_map(|application| {
-                (application.short_name == short_name).then(|| application.image_id)
+                (application.short_name == short_name).then_some(application.image_id)
             })
             .ok_or_else(|| {
                 ResponseError::Other(format!("Application \"{}\" not found", short_name))

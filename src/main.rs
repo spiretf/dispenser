@@ -35,7 +35,7 @@ struct Args {
     config: String,
 }
 
-#[derive(Subcommand)]
+#[derive(Subcommand, Default)]
 enum Commands {
     /// Start a new server if none is running
     Start,
@@ -44,13 +44,8 @@ enum Commands {
     /// List running servers
     List,
     /// Run the management daemon
+    #[default]
     Daemon,
-}
-
-impl Default for Commands {
-    fn default() -> Self {
-        Commands::Daemon
-    }
 }
 
 #[derive(Debug, Error)]
@@ -360,9 +355,9 @@ async fn start(cloud: &dyn Cloud, config: &Config) -> Result<Server, Error> {
 
 async fn set_dyndns(dns_config: DynDnsConfig, ip: IpAddr) {
     let dns = DynDnsClient::new(
-        dns_config.update_url.to_string(),
-        dns_config.username.to_string(),
-        dns_config.password.to_string(),
+        dns_config.update_url,
+        dns_config.username,
+        dns_config.password,
     );
     println!(
         "Updating DynDNS entry for {} to {}",
@@ -380,7 +375,7 @@ async fn connect_ssh(ip: IpAddr, auth: &CreatedAuth) -> Result<SshSession, Error
         tries += 1;
         sleep(Duration::from_secs(5)).await;
 
-        match SshSession::open(ip, &auth).await {
+        match SshSession::open(ip, auth).await {
             Ok(ssh) => {
                 return Ok(ssh);
             }
