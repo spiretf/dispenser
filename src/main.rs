@@ -288,7 +288,7 @@ async fn run_loop(
                 }
                 Err(e) => {
                     error!("Error while trying get player count: {}", e);
-                    true
+                    false
                 }
             };
             if stop {
