@@ -9,7 +9,7 @@
   src = sourceByRegex ./. ["Cargo.*" "(src)(/.*)?"];
 in
   rustPlatform.buildRustPackage rec {
-    name = "dispenser";
+    pname = "dispenser";
     version = "0.1.0";
 
     inherit src;
