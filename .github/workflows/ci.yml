@@ -51,9 +51,22 @@ jobs:
           name: palantir-${{ matrix.target }}
           path: result/bin/*
 
+  build-nixpkgs:
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v3
+      - uses: cachix/install-nix-action@v20
+      - uses: icewind1991/attic-action@v1
+        with:
+          name: ci
+          instance: https://cache.icewind.me
+          authToken: '${{ secrets.ATTIC_TOKEN }}'
+      - run: nix build .#dispenser
+
   docker:
     runs-on: ubuntu-latest
-    needs: build
+    needs: build-nixpkgs
     steps:
       - uses: actions/checkout@v3
       - uses: cachix/install-nix-action@v20

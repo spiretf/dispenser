@@ -35,10 +35,11 @@
           rustc = toolchain;
         };
       hostNaersk = naerskForTarget hostTarget;
-      src = lib.sources.sourceByRegex (lib.cleanSource ./.) ["Cargo.*" "src" "src/.*"];
       nearskOpt = {
         pname = "dispenser";
-        root = src;
+
+        inherit (pkgs.dispenser) src;
+
         nativeBuildInputs = with pkgs; [
           libsodium
           pkg-config
