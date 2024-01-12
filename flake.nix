@@ -39,6 +39,10 @@
       nearskOpt = {
         pname = "dispenser";
         root = src;
+        nativeBuildInputs = with pkgs; [
+          libsodium
+          pkg-config
+        ];
       };
     in rec {
       packages =
@@ -60,7 +64,12 @@
         };
 
       devShells.default = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [rust-bin.stable.latest.default bacon skopeo];
+        nativeBuildInputs = with pkgs; [
+          rust-bin.stable.latest.default
+          bacon
+          skopeo
+          cargo-edit
+        ] ++ nearskOpt.nativeBuildInputs;
       };
     })
     // {

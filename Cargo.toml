@@ -5,24 +5,24 @@ authors = ["Robin Appelman <robin@icewind.nl>"]
 edition = "2018"
 
 [dependencies]
-async-trait = "0.1"
-chrono = { version = "0.4", features = ["serde"] }
-thiserror = "1"
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] }
-serde = { version = "1.0", features = ["derive"] }
-toml = "0.5"
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "signal"] }
-camino = "1"
-petname = "1"
-thrussh = "0.33"
-thrussh-keys = "0.21"
-futures-util = "0.3"
-pretty_env_logger = "0.4"
-cron = "0.11.0"
+async-trait = "0.1.77"
+chrono = { version = "0.4.31", features = ["serde"] }
+thiserror = "1.0.56"
+reqwest = { version = "0.11.23", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1.0.195", features = ["derive"] }
+toml = "0.8.8"
+tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread", "signal"] }
+camino = "1.1.6"
+petname = "1.1.3"
+thrussh = "0.35.1"
+thrussh-keys = "0.22.1"
+futures-util = "0.3.30"
+pretty_env_logger = "0.5.0"
+cron = "0.12.0"
 rcon = { version = "0.6.0", features = ["rt-tokio"] }
-tracing = "0.1.33"
-tracing-subscriber = "0.3.11"
-clap = { version = "3.1.8", features = ["derive"] }
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+clap = { version = "4.4.16", features = ["derive"] }
 main_error = "0.1.2"
 
 [profile.release]
