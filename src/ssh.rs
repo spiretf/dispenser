@@ -82,7 +82,9 @@ impl SshSession {
                 sleep(Duration::from_secs(1)).await;
                 match SshSession::open_impl(ip, auth).await {
                     Ok(ssh) => return Ok(ssh),
-                    Err(SshError::ConnectionTimeout | SshError::Refused) => {}
+                    Err(
+                        SshError::ConnectionTimeout | SshError::Refused | SshError::Unauthorized,
+                    ) => {}
                     Err(e) => return Err(e),
                 }
             }
