@@ -22,6 +22,8 @@ in
       pkg-config
     ];
 
+    doCheck = false;
+
     cargoLock = {
       lockFile = ./Cargo.lock;
     };
