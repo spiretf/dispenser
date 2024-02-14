@@ -11,7 +11,7 @@ use thrussh::client::Handle;
 use thrussh::*;
 use thrussh_keys::key::PublicKey;
 use tokio::time::{sleep, timeout};
-use tracing::instrument;
+use tracing::{info, instrument};
 
 struct Client {}
 
@@ -77,14 +77,14 @@ impl Debug for SshSession {
 impl SshSession {
     #[instrument(skip(auth))]
     pub async fn open(ip: IpAddr, auth: &CreatedAuth) -> Result<Self, SshError> {
-        timeout(Duration::from_secs(5 * 60), async move {
+        timeout(Duration::from_secs(10 * 60), async move {
             loop {
-                sleep(Duration::from_secs(1)).await;
+                sleep(Duration::from_secs(5)).await;
                 match SshSession::open_impl(ip, auth).await {
                     Ok(ssh) => return Ok(ssh),
-                    Err(
-                        SshError::ConnectionTimeout | SshError::Refused | SshError::Unauthorized,
-                    ) => {}
+                    Err(err @ (SshError::ConnectionTimeout | SshError::Refused)) => {
+                        info!(error = ?err, "ssh server not ready yes");
+                    }
                     Err(e) => return Err(e),
                 }
             }
