@@ -164,9 +164,9 @@ in {
   config = mkIf cfg.enable {
     systemd.services.dispenser = {
       wantedBy = ["multi-user.target"];
-      script = "${cfg.package}/bin/dispenser ${configFile}";
 
       serviceConfig = {
+        ExecStart = "${cfg.package}/bin/dispenser ${configFile}";
         Restart = "on-failure";
         DynamicUser = true;
         PrivateTmp = true;
@@ -192,5 +192,16 @@ in {
         IPAddressDeny = "localhost link-local multicast";
       };
     };
+
+    environment.systemPackages = [
+      (pkgs.writeShellApplication {
+        name = "dispenser-cli";
+        runtimeInputs = [cfg.package];
+
+        text = ''
+          ${cfg.package}/bin/dispenser ${configFile} "$@"
+        '';
+      })
+    ];
   };
 }

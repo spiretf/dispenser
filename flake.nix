@@ -65,12 +65,14 @@
         };
 
       devShells.default = pkgs.mkShell {
-        nativeBuildInputs = with pkgs; [
-          rust-bin.stable.latest.default
-          bacon
-          skopeo
-          cargo-edit
-        ] ++ nearskOpt.nativeBuildInputs;
+        nativeBuildInputs = with pkgs;
+          [
+            rust-bin.stable.latest.default
+            bacon
+            skopeo
+            cargo-edit
+          ]
+          ++ nearskOpt.nativeBuildInputs;
       };
     })
     // {
