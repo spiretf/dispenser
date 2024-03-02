@@ -118,6 +118,8 @@ pub struct ServerConfig {
     pub ssh_keys: Vec<String>,
     #[serde(default)]
     pub manage_existing: bool,
+    #[serde(default)]
+    pub extra_cfg: String,
 }
 
 fn server_default_image() -> String {

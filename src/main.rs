@@ -102,12 +102,12 @@ async fn setup(
     }
 
     info!("starting container");
-    let result = ssh
-        .exec(format!(
-            "docker run --name spire -d \
+
+    let cmnd = format!(
+        "docker run --name spire -d \
             -e NAME={name} -e TV_NAME={tv_name} -e PASSWORD={password} -e RCON_PASSWORD={rcon} \
             -e DEMOSTF_APIKEY={demostf} -e LOGSTF_APIKEY={logstf} \
-            -e CONFIG_LEAGUE={league} -e CONFIG_MODE={mode} \
+            -e CONFIG_LEAGUE={league} -e CONFIG_MODE={mode} -e 'EXTRA_CFG={extra_cfg}' \
             -p 27015:27015 -p 27021:27021 -p 27015:27015/udp -p 27020:27020/udp -p 27025:27025 \
             -p 28015:27015 -p 28015:27015/udp -p 27115:27015 -p 27115:27015/udp -p 27215:27015 \
             -p 27215:27015/udp -p 27315:27015 -p 27315:27015/udp -p 27415:27015 -p 27415:27015/udp \
@@ -115,17 +115,21 @@ async fn setup(
             -p 27715:27015/udp -p 27815:27015 -p 27815:27015/udp -p 27915:27015 -p 27915:27015/udp \
             {image}
             ",
-            name = config.name,
-            tv_name = config.tv_name,
-            password = config.password,
-            rcon = config.rcon,
-            demostf = config.demostf_key.as_deref().unwrap_or_default(),
-            logstf = config.logstf_key.as_deref().unwrap_or_default(),
-            league = config.config_league,
-            mode = config.config_mode,
-            image = config.image
-        ))
-        .await?;
+        name = config.name,
+        tv_name = config.tv_name,
+        password = config.password,
+        rcon = config.rcon,
+        demostf = config.demostf_key.as_deref().unwrap_or_default(),
+        logstf = config.logstf_key.as_deref().unwrap_or_default(),
+        league = config.config_league,
+        mode = config.config_mode,
+        image = config.image,
+        extra_cfg = config.extra_cfg,
+    );
+
+    debug!("running {cmnd}");
+
+    let result = ssh.exec(cmnd).await?;
 
     if !result.success() {
         return Err(Error::SetupError(result.output()));

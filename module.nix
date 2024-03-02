@@ -67,6 +67,11 @@ in {
             type = types.bool;
             description = "Take control of existing server";
           };
+          extra_cfg = mkOption {
+            type = types.str;
+            description = "Extra config lines to set in the tf2 config";
+            default = "";
+          };
         };
       };
     };
