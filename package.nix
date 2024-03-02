@@ -1,11 +1,16 @@
 {
   stdenv,
-  rustPlatform,
+  makeRustPlatform,
   libsodium,
   pkg-config,
   lib,
+  rust-bin,
 }: let
   inherit (lib.sources) sourceByRegex;
+  rustPlatform = makeRustPlatform {
+    cargo = rust-bin.stable.latest.minimal;
+    rustc = rust-bin.stable.latest.minimal;
+  };
   src = sourceByRegex ./. ["Cargo.*" "(src)(/.*)?"];
 in
   rustPlatform.buildRustPackage rec {

@@ -27,6 +27,7 @@
       };
       hostTarget = pkgs.hostPlatform.config;
       targets = ["x86_64-unknown-linux-musl" hostTarget];
+
       naerskForTarget = target: let
         toolchain = pkgs.rust-bin.stable.latest.default.override {targets = [target];};
       in
