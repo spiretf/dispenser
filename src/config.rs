@@ -2,6 +2,7 @@ use crate::cloud::digitalocean::DigitalOcean;
 use crate::cloud::vultr::Vultr;
 use crate::cloud::Cloud;
 use camino::Utf8PathBuf;
+use secretfile::{load, SecretError};
 use serde::de::Error;
 use serde::{Deserialize, Deserializer};
 use std::fs::read_to_string;
@@ -84,11 +85,9 @@ where
     load_secret(raw).map_err(D::Error::custom)
 }
 
-fn load_secret(raw: String) -> Result<String, std::io::Error> {
-    let path: &Path = raw.as_ref();
-    if raw.starts_with('/') && path.exists() {
-        let raw = read_to_string(raw)?;
-        Ok(raw.trim().into())
+fn load_secret(raw: String) -> Result<String, SecretError> {
+    if raw.starts_with('/') || raw.starts_with('$') {
+        load(&raw)
     } else {
         Ok(raw)
     }
