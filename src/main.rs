@@ -13,7 +13,7 @@ use ssh::SshSession;
 use std::net::IpAddr;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use thiserror::Error;
 use tokio::signal::ctrl_c;
 use tokio::time::sleep;
@@ -247,12 +247,16 @@ async fn run_loop(
         );
     }
 
+    let mut start_of_stop_time = None;
+    let stop_grace_time = Duration::from_secs(config.schedule.stop_grace_time);
+
     loop {
         let next_start = start_schedule.upcoming(Utc).next().unwrap();
         let next_stop = stop_schedule.upcoming(Utc).next().unwrap();
 
         // we're between start time and stop time
         if active_server.is_none() && next_start > next_stop {
+            start_of_stop_time = None;
             println!("Starting server");
             match start(cloud.as_ref(), &config).await {
                 Ok(server) => active_server = Some(server),
@@ -272,27 +276,36 @@ async fn run_loop(
 
         // we're between stop time and start time
         if active_server.is_some() && next_stop > next_start {
-            let active_players_res = match Rcon::new(
-                (active_server.as_ref().unwrap().ip, 27015),
-                &config.server.rcon,
-            )
-            .await
-            {
-                Ok(mut rcon) => rcon.player_count().await,
-                Err(e) => Err(e),
-            };
-            let stop = match active_players_res {
-                Ok(0) => true,
-                Ok(count) => {
-                    info!(
-                        "Want to stop server, but there are still {} active players",
-                        count
-                    );
-                    false
-                }
-                Err(e) => {
-                    error!("Error while trying get player count: {}", e);
-                    false
+            let stop_elapsed = start_of_stop_time
+                .get_or_insert_with(|| Instant::now())
+                .elapsed();
+
+            let stop = if stop_elapsed > stop_grace_time {
+                warn!("Server took longer than the grace time of {} seconds to empty, shutting down with players left", stop_grace_time.as_secs());
+                true
+            } else {
+                let active_players_res = match Rcon::new(
+                    (active_server.as_ref().unwrap().ip, 27015),
+                    &config.server.rcon,
+                )
+                .await
+                {
+                    Ok(mut rcon) => rcon.player_count().await,
+                    Err(e) => Err(e),
+                };
+                match active_players_res {
+                    Ok(0) => true,
+                    Ok(count) => {
+                        info!(
+                            "Want to stop server, but there are still {} active players",
+                            count
+                        );
+                        false
+                    }
+                    Err(e) => {
+                        error!("Error while trying get player count: {}", e);
+                        false
+                    }
                 }
             };
             if stop {

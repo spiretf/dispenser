@@ -184,4 +184,11 @@ pub struct DynDnsConfig {
 pub struct ScheduleConfig {
     pub start: String,
     pub stop: String,
+    #[serde(default = "default_stop_grace_time")]
+    pub stop_grace_time: u64,
+}
+
+/// 1h
+fn default_stop_grace_time() -> u64 {
+    60 * 60
 }
