@@ -2,7 +2,7 @@ name: Release
 
 on:
   release:
-    types: [created]
+    types: [ created ]
 
 
 jobs:
@@ -10,8 +10,8 @@ jobs:
     name: Build release binaries
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: cachix/install-nix-action@v20
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v27
       - uses: icewind1991/attic-action@v1
         with:
           name: ci

@@ -68,7 +68,7 @@ impl Cloud for Vultr {
                 region: self.region.as_str(),
                 plan: self.plan.as_str(),
                 tag: "spire",
-                label: petname(2, "-"),
+                label: petname(2, "-").expect("failed to generate name"),
                 image_id: self.get_app_image_id("docker").await?,
                 sshkey_id: key_ids,
                 enable_ipv6: true,

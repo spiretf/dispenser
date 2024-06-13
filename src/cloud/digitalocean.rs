@@ -89,7 +89,7 @@ impl Cloud for DigitalOcean {
                 region: self.region.as_str(),
                 size: self.plan.as_str(),
                 tags: &["spire"],
-                name: petname(2, "-"),
+                name: petname(2, "-").expect("failed to generate name"),
                 image: "docker-20-04",
                 ssh_keys: key_ids,
                 ipv6: true,
