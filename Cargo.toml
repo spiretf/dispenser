@@ -14,7 +14,7 @@ toml = "0.8.14"
 tokio = { version = "1.38.0", features = ["macros", "rt-multi-thread", "signal"] }
 camino = "1.1.7"
 petname = "2.0.2"
-thrussh = "0.34.1" # 0.35.1 broke password auth?
+thrussh = "=0.34.0" # 0.34.1 broke password auth?
 thrussh-keys = "0.22.1"
 futures-util = "0.3.30"
 pretty_env_logger = "0.5.0"

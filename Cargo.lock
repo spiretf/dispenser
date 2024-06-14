@@ -1806,9 +1806,9 @@ dependencies = [
 
 [[package]]
 name = "thrussh"
-version = "0.34.1"
+version = "0.34.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b78a2816fc84bee8abe3d119cae53d186d0bbb872a159b9079b1bdbc646224c"
+checksum = "0eb7f634184fe86d7a9fd587d9350137508cba7b77626a7785db2ca695ebc503"
 dependencies = [
  "bitflags 1.3.2",
  "byteorder",
@@ -1822,7 +1822,7 @@ dependencies = [
  "sha2 0.9.9",
  "thiserror",
  "thrussh-keys",
- "thrussh-libsodium 0.3.0",
+ "thrussh-libsodium",
  "tokio",
 ]
 
@@ -1852,7 +1852,7 @@ dependencies = [
  "serde_derive",
  "sha2 0.9.9",
  "thiserror",
- "thrussh-libsodium 0.2.3",
+ "thrussh-libsodium",
  "tokio",
  "tokio-stream",
  "yasna",
@@ -1863,19 +1863,6 @@ name = "thrussh-libsodium"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f4f9c0eb4cff7225e782f7c4930c7b1f9caedf45c182e2d8602c0ec34679a1e"
-dependencies = [
- "lazy_static",
- "libc",
- "libsodium-sys",
- "pkg-config",
- "vcpkg",
-]
-
-[[package]]
-name = "thrussh-libsodium"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "58ed00bb88de0df6f5f4a21269a434c79ca2056bd95036ec6c6c41bfef476ea3"
 dependencies = [
  "lazy_static",
  "libc",
