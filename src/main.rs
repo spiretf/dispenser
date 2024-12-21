@@ -277,7 +277,7 @@ async fn run_loop(
         // we're between stop time and start time
         if active_server.is_some() && next_stop > next_start {
             let stop_elapsed = start_of_stop_time
-                .get_or_insert_with(|| Instant::now())
+                .get_or_insert_with(Instant::now)
                 .elapsed();
 
             let stop = if stop_elapsed > stop_grace_time {
