@@ -1,17 +1,17 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
+{ config
+, lib
+, pkgs
+, ...
 }:
 with lib; let
   cfg = config.services.dispenser;
-  format = pkgs.formats.toml {};
+  format = pkgs.formats.toml { };
   configFile = format.generate "dispenser.toml" (filterAttrs (n: v: v != null) {
     inherit (cfg) server vultr dyndns schedule;
     digital_ocean = cfg.digitalocean;
   });
-in {
+in
+{
   options.services.dispenser = {
     enable = mkEnableOption "Enables the dispenser service";
 
@@ -168,7 +168,7 @@ in {
 
   config = mkIf cfg.enable {
     systemd.services.dispenser = {
-      wantedBy = ["multi-user.target"];
+      wantedBy = [ "multi-user.target" ];
 
       serviceConfig = {
         ExecStart = "${cfg.package}/bin/dispenser ${configFile}";
@@ -193,7 +193,7 @@ in {
         RestrictAddressFamilies = "AF_INET AF_INET6";
         RestrictRealtime = true;
         ProtectProc = "noaccess";
-        SystemCallFilter = ["@system-service" "~@resources" "~@privileged"];
+        SystemCallFilter = [ "@system-service" "~@resources" "~@privileged" ];
         IPAddressDeny = "localhost link-local multicast";
       };
     };
@@ -201,7 +201,7 @@ in {
     environment.systemPackages = [
       (pkgs.writeShellApplication {
         name = "dispenser-cli";
-        runtimeInputs = [cfg.package];
+        runtimeInputs = [ cfg.package ];
 
         text = ''
           ${cfg.package}/bin/dispenser ${configFile} "$@"

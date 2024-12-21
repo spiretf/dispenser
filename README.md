@@ -18,7 +18,7 @@ This does mean that if the program is (re-)started while a server is already act
 start and destroy any server because it can't be sure it should control the running server.
 You'll need to manually destroy the existing server in that case.
 
-You can overwrite this behavior by setting `manage_existing = true` in your `config.toml`,  
+You can overwrite this behavior by setting `manage_existing = true` in your `config.toml`,
 
 ## Manual usage
 
@@ -50,7 +50,7 @@ If you want to store your config file in version control but don't want to store
 you can choose to load the secrets from other files by specifying the secret as an absolute path.
 
 This can be done for the following config options:
-  `server.demostf_key`, `server.logstf_key`, `vultr.api_key`, `digitalocean.api_key` and `dyndns.password`.
+`server.demostf_key`, `server.logstf_key`, `vultr.api_key`, `digitalocean.api_key` and `dyndns.password`.
 
 ## TODO
 
