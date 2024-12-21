@@ -190,5 +190,5 @@ pub struct ScheduleConfig {
 
 /// 1h
 fn default_stop_grace_time() -> u64 {
-    60 * 60
+    3 * 60 * 60
 }
