@@ -18,7 +18,7 @@
         , lib
         , ...
         }: {
-          imports = [ ./module.nix ];
+          imports = [ ./nix/module.nix ];
           config = {
             nixpkgs.overlays = [ outputs.overlays.default ];
             services.dispenser.package = lib.mkDefault pkgs.dispenser;
